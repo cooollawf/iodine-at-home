@@ -4,10 +4,10 @@ from pathlib import Path
 import pyarrow.feather as feather
 def create_cluster_list():
     data = pd.DataFrame({
-        'CLUSTER_NAME': [''],
-        'CLUSTER_ID': [''],
-        'CLUSTER_SECRET': [''],
-        'CLUSTER_BANDWIDTH': [''],
+        'CLUSTER_NAME': [],
+        'CLUSTER_ID': [],
+        'CLUSTER_SECRET': [],
+        'CLUSTER_BANDWIDTH': [],
     })
     table = pa.Table.from_pandas(data)
     feather.write_feather(table, Path('./data/CLUSTER_LIST.feather'))
@@ -20,7 +20,7 @@ def new_cluster(name: str, id: str, secret: str, bandwidth: int):
         'CLUSTER_SECRET': [secret],
         'CLUSTER_BANDWIDTH': [bandwidth],
     })
-    data_appended = existing_data.append(data, ignore_index=True)
+    data_appended = pd.concat([existing_data, data], ignore_index=True)
     feather.write_feather(data_appended, Path('./data/CLUSTER_LIST.feather'))
 
 def remove_cluster(id: str):
@@ -31,15 +31,8 @@ def remove_cluster(id: str):
         return 'OK'
     except KeyError:
         return None
-    except ValueError:
-        return None
 
 def query_cluster_data(id: str):
-    try:
-        existing_data = pd.read_feather(Path('./data/CLUSTER_LIST.feather'))
-        result = existing_data[existing_data['CLUSTER_ID'] == id]
-        return result
-    except KeyError:
-        return None
-    except ValueError:
-        return None
+    existing_data = pd.read_feather(Path('./data/CLUSTER_LIST.feather'))
+    result = existing_data[existing_data['CLUSTER_ID'] == id]
+    return result
