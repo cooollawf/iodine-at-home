@@ -3,9 +3,7 @@ import hmac
 import time
 import hashlib
 import uvicorn
-from typing import Any
 from pathlib import Path
-from pydantic import BaseModel
 from fastapi import FastAPI, Header, Response, status, Request, Form
 from fastapi.responses import PlainTextResponse, RedirectResponse
 
@@ -19,7 +17,7 @@ app = FastAPI()
 
 # 获取 challenge 部分
 @app.get("/openbmclapi-agent/challenge")
-def read_challenge(response: Response, clusterId: str | None = ""):
+def fetch_challenge(response: Response, clusterId: str | None = ""):
     if database.query_cluster_data(clusterId).any().any():
         return {"challenge": utils.encode_jwt({'cluster_id': clusterId, 'cluster_secret': database.query_cluster_data(clusterId)["CLUSTER_SECRET"].item(), "exp": int(time.time()) + 1000 * 60 * 5})}
     else:
@@ -27,7 +25,7 @@ def read_challenge(response: Response, clusterId: str | None = ""):
 
 # 获取 token 部分
 @app.post("/openbmclapi-agent/token")
-async def read_token(clusterId: str = Form(...), challenge: str = Form(...), signature: str = Form(...)):
+async def fetch_token(clusterId: str = Form(...), challenge: str = Form(...), signature: str = Form(...)):
     h = hmac.new(str(database.query_cluster_data(clusterId)["CLUSTER_SECRET"].item()).encode('utf-8'), digestmod=hashlib.sha256)
     h.update(challenge.encode())
     if database.query_cluster_data(clusterId).any().any() and utils.decode_jwt(challenge)["cluster_id"] == clusterId and utils.decode_jwt(challenge)["exp"] > int(time.time()):
@@ -37,6 +35,11 @@ async def read_token(clusterId: str = Form(...), challenge: str = Form(...), sig
             return PlainTextResponse("Unauthorized", 401)
     else:
         return PlainTextResponse("Unauthorized", 401)
+    
+# 获取 token 部分
+@app.get("/openbmclapi/configuration")
+def fetch_configuration():
+    return {"sync": {"source": "center", "concurrency": 100}}
 
 def init():
     data_folder_path = Path('./data/')
