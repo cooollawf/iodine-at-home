@@ -13,8 +13,12 @@ logging.add(sys.stdout, format="<yellow>{level}</yellow>:     {message}", level=
 
 all_figures = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
 all_small_letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']
-def generate_jwt_token(data, secret: str | None = settings.JWT_SECRET):
+def encode_jwt(data, secret: str | None = settings.JWT_SECRET):
     result = jwt.encode(data, secret, algorithm='HS256')
+    return result
+
+def decode_jwt(data, secret: str | None = settings.JWT_SECRET):
+    result = jwt.decode(data, secret, algorithms=['HS256'])
     return result
 
 def generate_random_character():
