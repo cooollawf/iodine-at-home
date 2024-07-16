@@ -15,7 +15,7 @@ env_status = load_dotenv(dotenvPath)
 if env_status == False:
     logger.info("即将创建配置文件，创建后，程序将自动关闭，请前去配置。")
     try:
-        response = httpx.get('https://jsd.onmicrosoft.cn/gh/Zero-Octagon/iodine-at-home@main/.env.example')
+        response = httpx.get('https://cdn.jsdmirror.com/gh/Zero-Octagon/iodine-at-home@main/settings/.env.example')
         if response.status_code == 200:
             # 打开一个本地文件以写入二进制数据
             with open(dotenvPath, 'w') as cfgFile:
