@@ -1,5 +1,6 @@
 import os
 import re
+import zstd
 import hmac
 import time
 import hashlib
@@ -49,16 +50,28 @@ async def fetch_token(clusterId: str = Form(...), challenge: str = Form(...), si
 def fetch_configuration():
     return {"sync": {"source": "center", "concurrency": 100}}
 
+# 获取 token 部分
+@app.get("/openbmclapi/files")
+def fetch_filesList():
+    # TODO: 获取文件列表
+    return {"message": "这还在做，你别催！"}
+
 @sio.on('connect')
 async def on_connect(sid, *args):
     token_pattern = r"'token': '(.*?)'"
     token = re.search(token_pattern, str(args)).group(1)
-    if database.query_cluster_data(utils.decode_jwt(token)['cluster_id']).any().any() and database.query_cluster_data(utils.decode_jwt(token)['cluster_id'])["CLUSTER_SECRET"].item() == utils.decode_jwt(token)['cluster_secret']:
-        await sio.save_session(sid, {'token': token})
-        logger.info(f'{sid} 连接成功')
+    database_data = database.query_cluster_data(utils.decode_jwt(token)["cluster_id"])
+    if database_data.any().any() and database_data["CLUSTER_SECRET"].item() == utils.decode_jwt(token)['cluster_secret']:
+        await sio.save_session(sid, {"cluster_id": database_data["CLUSTER_ID"].item(), "cluster_secret": database_data["CLUSTER_SECRET"].item(), "token": token})
+        logger.info(f"客户端 {sid} 连接成功（CLUSTER_ID: {database_data['CLUSTER_ID'].item()}）")
     else:
         sio.disconnect(sid)
-        logger.info(f'{sid} 想连接但是失败了（原因: 认证失败）')
+        logger.info(f"客户端 {sid} 连接失败（原因: 认证失败）")
+
+@sio.on('enable')
+async def on_cluster_enable(sid, *args):
+    # TODO: 启动节点时的逻辑以及检查节点是否符合启动要求部分
+    logger.info(f"{sid} 启用了集群")
 
 def init():
     data_folder_path = Path('./data/')
