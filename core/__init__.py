@@ -6,8 +6,9 @@ import time
 import hashlib
 import uvicorn
 from pathlib import Path
+
 from fastapi import FastAPI, Header, Response, status, Request, Form
-from fastapi.responses import PlainTextResponse, RedirectResponse
+from fastapi.responses import PlainTextResponse, RedirectResponse, FileResponse
 
 import core.utils as utils
 import core.database as database
@@ -24,7 +25,7 @@ app = FastAPI()
 sio = AsyncServer(async_mode='asgi', cors_allowed_origins='*')
 socket = ASGIApp(sio)
 
-# 获取 challenge 部分
+# 下发 challenge（有效期: 5 分钟）
 @app.get("/openbmclapi-agent/challenge")
 def fetch_challenge(response: Response, clusterId: str | None = ""):
     if database.query_cluster_data(clusterId).any().any():
@@ -32,7 +33,7 @@ def fetch_challenge(response: Response, clusterId: str | None = ""):
     else:
         return PlainTextResponse("Not Found", 404)
 
-# 获取 token 部分
+# 下发令牌（有效期: 1 天）
 @app.post("/openbmclapi-agent/token")
 async def fetch_token(clusterId: str = Form(...), challenge: str = Form(...), signature: str = Form(...)):
     h = hmac.new(str(database.query_cluster_data(clusterId)["CLUSTER_SECRET"].item()).encode('utf-8'), digestmod=hashlib.sha256)
@@ -45,17 +46,28 @@ async def fetch_token(clusterId: str = Form(...), challenge: str = Form(...), si
     else:
         return PlainTextResponse("Unauthorized", 401)
     
-# 获取 token 部分
+# 建议同步参数
 @app.get("/openbmclapi/configuration")
 def fetch_configuration():
     return {"sync": {"source": "center", "concurrency": 100}}
 
-# 获取 token 部分
+# 文件列表
 @app.get("/openbmclapi/files")
 def fetch_filesList():
     # TODO: 获取文件列表
     return {"message": "这还在做，你别催！"}
 
+# 普通下载（从主控或节点拉取文件）
+@app.get("/download/{path}")
+def download_file(path: str):
+    return PlainTextResponse(utils.hash_file(Path(f'./files/{path}')))
+
+# 紧急同步（从主控拉取文件）
+@app.get("/openbmclapi/download/{hash}")
+def download_file(hash: str):
+    return PlainTextResponse(utils.hash_file(Path(f'./files/{hash}')))
+
+# 节点端连接时
 @sio.on('connect')
 async def on_connect(sid, *args):
     token_pattern = r"'token': '(.*?)'"
@@ -68,16 +80,22 @@ async def on_connect(sid, *args):
         sio.disconnect(sid)
         logger.info(f"客户端 {sid} 连接失败（原因: 认证失败）")
 
+# 节点启动时
 @sio.on('enable')
 async def on_cluster_enable(sid, *args):
     # TODO: 启动节点时的逻辑以及检查节点是否符合启动要求部分
     logger.info(f"{sid} 启用了集群")
+    return {"message":"服务器查活失败，请检查端口是否可用(XXX)：Error: 未能成功测量带宽: connect ECONNREFUSED XXX:114514"}
 
 def init():
-    data_folder_path = Path('./data/')
     # 检查文件夹是否存在
-    if not os.path.exists(data_folder_path):
-        os.makedirs(data_folder_path)
+    if not os.path.exists(Path('./data/')):
+        os.makedirs(Path('./data/'))
+    if not os.path.exists(Path('./files/')):
+        os.makedirs(Path('./files/'))
     logger.info(f'加载中...')
     app.mount('/', socket)
-    uvicorn.run(app, host=settings.HOST, port=settings.PORT)
+    try:
+        uvicorn.run(app, host=settings.HOST, port=settings.PORT)
+    except KeyboardInterrupt:
+        logger.info('主控已关闭。')
