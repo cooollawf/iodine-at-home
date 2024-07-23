@@ -21,6 +21,8 @@ if env_status == False:
 
 # 读取配置文件信息
 settings = dotenv_values(dotenvPath)
+
 HOST = str(settings.get('HOST', '0.0.0.0'))
 PORT = int(settings.get('PORT', 8080))
 JWT_SECRET = str(settings.get('JWT_SECRET', '114514'))
+HEADERS = str(settings.get('HEADERS', 'iodine-ctrl'))

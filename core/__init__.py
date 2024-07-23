@@ -1,6 +1,5 @@
 import os
 import re
-import zstd
 import hmac
 import time
 import hashlib
@@ -14,6 +13,7 @@ import core.utils as utils
 import core.database as database
 import core.settings as settings
 from core.utils import logging as logger
+from core.types import Cluster, FileObject
 
 from starlette.routing import Mount
 from starlette.applications import Starlette
@@ -28,19 +28,21 @@ socket = ASGIApp(sio)
 # 下发 challenge（有效期: 5 分钟）
 @app.get("/openbmclapi-agent/challenge")
 def fetch_challenge(response: Response, clusterId: str | None = ""):
-    if database.query_cluster_data(clusterId).any().any():
-        return {"challenge": utils.encode_jwt({'cluster_id': clusterId, 'cluster_secret': database.query_cluster_data(clusterId)["CLUSTER_SECRET"].item(), "exp": int(time.time()) + 1000 * 60 * 5})}
+    cluster = Cluster(clusterId)
+    if cluster:
+        return {"challenge": utils.encode_jwt({'cluster_id': clusterId, 'cluster_secret': cluster.secret, "exp": int(time.time()) + 1000 * 60 * 5})}
     else:
         return PlainTextResponse("Not Found", 404)
 
 # 下发令牌（有效期: 1 天）
 @app.post("/openbmclapi-agent/token")
-async def fetch_token(clusterId: str = Form(...), challenge: str = Form(...), signature: str = Form(...)):
-    h = hmac.new(str(database.query_cluster_data(clusterId)["CLUSTER_SECRET"].item()).encode('utf-8'), digestmod=hashlib.sha256)
+async def fetch_token(resoponse: Response ,clusterId: str = Form(...), challenge: str = Form(...), signature: str = Form(...)):
+    cluster = Cluster(clusterId)
+    h = hmac.new(cluster.secret.encode('utf-8'), digestmod=hashlib.sha256)
     h.update(challenge.encode())
-    if database.query_cluster_data(clusterId).any().any() and utils.decode_jwt(challenge)["cluster_id"] == clusterId and utils.decode_jwt(challenge)["exp"] > int(time.time()):
+    if cluster and utils.decode_jwt(challenge)["cluster_id"] == clusterId and utils.decode_jwt(challenge)["exp"] > int(time.time()):
         if str(h.hexdigest()) == signature:
-            return {"token": utils.encode_jwt({'cluster_id': clusterId, 'cluster_secret': database.query_cluster_data(clusterId)["CLUSTER_SECRET"].item()}), "ttl": 1000 * 60 * 60 * 24}
+            return {"token": utils.encode_jwt({'cluster_id': clusterId, 'cluster_secret': cluster.secret}), "ttl": 1000 * 60 * 60 * 24}
         else:
             return PlainTextResponse("Unauthorized", 401)
     else:
@@ -55,27 +57,27 @@ def fetch_configuration():
 @app.get("/openbmclapi/files")
 def fetch_filesList():
     # TODO: 获取文件列表
-    return {"message": "这还在做，你别催！"}
+    return Response(content=utils.compute_avro_bytes(utils.scan_files('./files/')), media_type="application/octet-stream")
 
 # 普通下载（从主控或节点拉取文件）
-@app.get("/download/{path}")
+@app.get("/files/{path}")
 def download_file(path: str):
     return PlainTextResponse(utils.hash_file(Path(f'./files/{path}')))
 
 # 紧急同步（从主控拉取文件）
 @app.get("/openbmclapi/download/{hash}")
 def download_file(hash: str):
-    return PlainTextResponse(utils.hash_file(Path(f'./files/{hash}')))
+    return FileResponse(utils.hash_file(Path(f'./files/{hash}')))
 
 # 节点端连接时
 @sio.on('connect')
 async def on_connect(sid, *args):
     token_pattern = r"'token': '(.*?)'"
     token = re.search(token_pattern, str(args)).group(1)
-    database_data = database.query_cluster_data(utils.decode_jwt(token)["cluster_id"])
-    if database_data.any().any() and database_data["CLUSTER_SECRET"].item() == utils.decode_jwt(token)['cluster_secret']:
-        await sio.save_session(sid, {"cluster_id": database_data["CLUSTER_ID"].item(), "cluster_secret": database_data["CLUSTER_SECRET"].item(), "token": token})
-        logger.info(f"客户端 {sid} 连接成功（CLUSTER_ID: {database_data['CLUSTER_ID'].item()}）")
+    cluster = Cluster(utils.decode_jwt(token)["cluster_id"])
+    if cluster and cluster.secret == utils.decode_jwt(token)['cluster_secret']:
+        await sio.save_session(sid, {"cluster_id": cluster.id, "cluster_secret": cluster.secret, "token": token})
+        logger.info(f"客户端 {sid} 连接成功（CLUSTER_ID: {cluster.id}）")
     else:
         sio.disconnect(sid)
         logger.info(f"客户端 {sid} 连接失败（原因: 认证失败）")
