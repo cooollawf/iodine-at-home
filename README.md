@@ -60,6 +60,7 @@ JWT_SECRET = ''
 
 [**8Mi_Yile**](https://github.com/8MiYile)
 - 各种逆天言论，使 [bangbang93HUB](https://github.com/Mxmilu666/bangbang93HUB) 能持续更新至今。（使开发更加轻松、开心）
+- 推进 OpenBMCLAPI 节点 与 三大运营商 相关合作的开展。
 
 [**SALTWOOD**](https://github.com/SALTWOOD)
 - [93@Home](https://github.com/SaltWood-Studio/Open93AtHome) - 提供了创建该项目的灵感。
