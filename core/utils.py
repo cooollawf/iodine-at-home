@@ -1,26 +1,21 @@
 import os
-import io
 import sys
 import jwt
 import httpx
 import random
 import hashlib
-import fastavro
-import aiofiles
-import pyzstd as zstd
+import zstandard as zstd
 from pathlib import Path
 from loguru import logger
 
 import core.settings as settings
-from core.types import Cluster, FileObject
+from core.types import Cluster, FileObject, Avro
 
 logging = logger
 logging.remove()
 logging.add(sys.stdout, format="<green>{level}</green>:     {message}", level="INFO")
 logging.add(sys.stdout, format="<red>{level}</red>:     {message}", level="ERROR")
 logging.add(sys.stdout, format="<yellow>{level}</yellow>:     {message}", level="WARNING")
-
-files_list = []
 
 AVRO_SCHEMA = {
     'type': 'array',
@@ -71,6 +66,7 @@ def hash_file(filename, algorithm: str | None = 'sha1'):
 
 def scan_files(directory_path: Path):
     """* 递归扫描目录及其子目录，返回该目录下所有文件的路径集合"""
+    files_list = []
     files_list.clear()
 
     for dirpath, dirnames, filenames in os.walk(directory_path):
@@ -81,18 +77,22 @@ def scan_files(directory_path: Path):
             if filename.startswith('.'):
                 continue
             filepath = f"{unix_style_dirpath}/{filename}"
-            files_list.append(FileObject(filepath, hash_file(filepath), os.path.getsize(filepath), os.path.getmtime(filepath)*1000))
-    logger.info(files_list)
+            files_list.append(FileObject(filepath, hash_file(filepath), os.path.getsize(filepath), int(os.path.getmtime(filepath)*1000)))
+
     return files_list
 
-def compute_avro_bytes(elements):
-    out = io.BytesIO()
-    # out.write(len(elements).to_bytes(4, byteorder='big'))
-    fastavro.writer(out, AVRO_SCHEMA, ([{'path': file.path,'hash': file.hash,'size': file.size, 'mtime': file.mtime} for file in files_list]))
-    bytes_data = out.getvalue()
-
-    result = zstd.ZstdCompressor().compress(bytes_data)
-
+def compute_avro_bytes():
+    files_list = scan_files('./files/')
+    avro = Avro()
+    avro.writeVarInt(len(files_list))
+    # 挨个写入数据
+    for file in files_list:
+        avro.writeString(file.path)
+        avro.writeString(file.hash)
+        avro.writeLong(file.size)
+        avro.writeLong(file.mtime)
+    avro.write(b'\x00')
+    result = zstd.ZstdCompressor().compress(avro.io.getvalue())
     return result
 
 # async def get_sign(file: str, cluster: str):

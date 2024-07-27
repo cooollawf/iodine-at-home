@@ -3,11 +3,13 @@ import re
 import hmac
 import time
 import hashlib
-import uvicorn
 from pathlib import Path
+from datetime import datetime, timezone
 
+import uvicorn
 from fastapi import FastAPI, Header, Response, status, Request, Form
 from fastapi.responses import PlainTextResponse, RedirectResponse, FileResponse
+import uvicorn.config
 
 import core.utils as utils
 import core.database as database
@@ -57,7 +59,7 @@ def fetch_configuration():
 @app.get("/openbmclapi/files")
 def fetch_filesList():
     # TODO: 获取文件列表
-    return Response(content=utils.compute_avro_bytes(utils.scan_files('./files/')), media_type="application/octet-stream")
+    return Response(content=utils.compute_avro_bytes(), media_type="application/octet-stream")
 
 # 普通下载（从主控或节点拉取文件）
 @app.get("/files/{path}")
@@ -82,12 +84,26 @@ async def on_connect(sid, *args):
         sio.disconnect(sid)
         logger.info(f"客户端 {sid} 连接失败（原因: 认证失败）")
 
+# 节点端退出连接时
+@sio.on('disconnect')
+async def on_disconnect(sid, *args):
+    logger.info(f"客户端 {sid} 关闭了连接")
+
 # 节点启动时
 @sio.on('enable')
-async def on_cluster_enable(sid, *args):
+async def on_cluster_enable(sid, data, *args):
     # TODO: 启动节点时的逻辑以及检查节点是否符合启动要求部分
-    logger.info(f"{sid} 启用了集群")
-    return {"message":"服务器查活失败，请检查端口是否可用(XXX)：Error: 未能成功测量带宽: connect ECONNREFUSED XXX:114514"}
+    logger.info(f"{sid} 启用了集群（{data}）")
+    # return [None, True]
+    return [{"message":"把头低下！鼠雀之辈！啊哈哈哈哈！"}]
+
+# 节点保活时
+@sio.on('keep-alive')
+async def on_cluster_keep_alive(sid, data, *args):
+    # TODO: 当节点保活时检测节点是否正确上报数据
+    logger.info(f"{sid} 保活（{data}）")
+    # return [None, datetime.now(timezone.utc).isoformat()]
+    return [None, False]
 
 def init():
     # 检查文件夹是否存在
@@ -101,3 +117,5 @@ def init():
         uvicorn.run(app, host=settings.HOST, port=settings.PORT)
     except KeyboardInterrupt:
         logger.info('主控已关闭。')
+
+# uvicorn.config.LOGGING_CONFIG = 
