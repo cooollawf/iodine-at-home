@@ -10,12 +10,14 @@ import uvicorn
 from fastapi import FastAPI, Header, Response, status, Request, Form
 from fastapi.responses import PlainTextResponse, RedirectResponse, FileResponse
 import uvicorn.config
+import requests
 
 import core.utils as utils
 import core.database as database
 import core.settings as settings
 from core.utils import logging as logger
 from core.types import Cluster, FileObject
+import core.enable as enable
 
 from starlette.routing import Mount
 from starlette.applications import Starlette
@@ -93,9 +95,28 @@ async def on_disconnect(sid, *args):
 @sio.on('enable')
 async def on_cluster_enable(sid, data, *args):
     # TODO: 启动节点时的逻辑以及检查节点是否符合启动要求部分
-    logger.info(f"{sid} 启用了集群（{data}）")
-    # return [None, True]
-    return [{"message":"把头低下！鼠雀之辈！啊哈哈哈哈！"}]
+    cluster = Cluster('your_secret')
+    path = '/masure/10'
+    sign, e = enable.get_sign(path, cluster)
+
+    ip = Request.client_host()
+    port = Request.client_port()
+    url = f"http://{ip}:{port}{path}?s={sign}&e={e}"
+
+    try:
+        start_time = time.time()
+        response = requests.get(url)
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+
+        bandwidth = 1.25/elapsed_time
+        print(f"{url} {response.status_code} {response.text}")
+        logger.info(f"{sid} 启用了集群（{data}），访问时间：{elapsed_time:.2f}秒")
+
+    except requests.RequestException as err:
+        logger.error(f"请求失败: {err}")
+        # return [None, True]
+        return [{"message": "把头低下！鼠雀之辈！啊哈哈哈哈！"}]
 
 # 节点保活时
 @sio.on('keep-alive')
