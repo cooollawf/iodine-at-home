@@ -96,7 +96,6 @@ async def on_disconnect(sid, *args):
 # 节点启动时
 @sio.on('enable')
 async def on_cluster_enable(sid, data, *args):
-    # TODO: 启动节点时的逻辑以及检查节点是否符合启动要求部分
     cluster = Cluster('your_secret')
     path = '/masure/10'
     sign, e = enable.get_sign(path, cluster)
@@ -110,8 +109,8 @@ async def on_cluster_enable(sid, data, *args):
         response = requests.get(url)
         end_time = time.time()
         elapsed_time = end_time - start_time
-
-        bandwidth = 1.25/elapsed_time
+        # 计算测速时间
+        bandwidth = 1.25/elapsed_time # 计算带宽
         print(f"{url} {response.status_code} {response.text}")
         logger.info(f"{sid} 启用了集群（{data}），带宽：{bandwidth}")
     except requests.RequestException as err:
