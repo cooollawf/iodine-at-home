@@ -10,12 +10,14 @@ import uvicorn
 from fastapi import FastAPI, Header, Response, status, Request, Form
 from fastapi.responses import PlainTextResponse, RedirectResponse, FileResponse, HTMLResponse
 import uvicorn.config
+import requests
 
 import core.utils as utils
 import core.database as database
 import core.settings as settings
 from core.utils import logging as logger
 from core.types import Cluster, FileObject
+import core.enable as enable
 
 from starlette.routing import Mount
 from starlette.applications import Starlette
@@ -92,6 +94,8 @@ async def on_connect(sid, *args):
     if cluster and cluster.secret == utils.decode_jwt(token)['cluster_secret']:
         await sio.save_session(sid, {"cluster_id": cluster.id, "cluster_secret": cluster.secret, "token": token})
         logger.info(f"客户端 {sid} 连接成功（CLUSTER_ID: {cluster.id}）")
+        # 连接成功后触发 enable 事件
+        await sio.emit('enable', {"cluster_id": cluster.id}, room=sid)
     else:
         sio.disconnect(sid)
         logger.info(f"客户端 {sid} 连接失败（原因: 认证失败）")
@@ -106,8 +110,27 @@ async def on_disconnect(sid, *args):
 async def on_cluster_enable(sid, data, *args):
     # TODO: 启动节点时的逻辑以及检查节点是否符合启动要求部分
     logger.info(f"{sid} 启用了集群（{data}）")
-    # 成功: return [None, True]
-    return [{"message":"把头低下！鼠雀之辈！啊哈哈哈哈！"}]
+    cluster = Cluster('your_secret')
+    path = '/masure/10'
+    sign, e = enable.get_sign(path, cluster)
+
+    ip = Request.client_host()
+    port = Request.client_port()
+    url = f"http://{ip}:{port}{path}?s={sign}&e={e}"
+
+    try:
+        start_time = time.time()
+        response = requests.get(url)
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        # 计算测速时间
+        bandwidth = 1.25/elapsed_time # 计算带宽
+        print(f"{url} {response.status_code} {response.text}")
+        logger.info(f"{sid} 启用了集群（{data}），带宽：{bandwidth}")
+    except requests.RequestException as err:
+        logger.error(f"请求失败: {err}")
+        # return [None, True]
+        return [{"message": "把头低下！鼠雀之辈！啊哈哈哈哈！"}]
 
 # 节点保活时
 @sio.on('keep-alive')
@@ -130,4 +153,47 @@ def init():
     except KeyboardInterrupt:
         logger.info('主控已关闭。')
 
-# uvicorn.config.LOGGING_CONFIG = 
+
+
+
+
+
+"""
+
+                         _oo0oo_
+                        o8888888o
+                        88" . "88
+                        (| -_- |)
+                        0\  =  /0
+                      ___/`---'\___
+                    .' \\|     |// '.
+                   / \\|||  :  |||// \
+                  / _||||| -:- |||||- \
+                 |   | \\\  - /// |   |
+                 | \_|  ''\---/''  |_/ |
+                 \  .-\__  '-'  ___/-. /
+                ___'. .'  /--.--\  `. .'___
+            ."" '<  `.___\_<|>_/___.' >' "".
+           | | :  `- \`.;`\ _ /`;.`/ - ` : | |
+           \  \ `_.   \_ __\ /__ _/   .-` /  /
+       =====`-.____`.___ \_____/___.-`___.-'=====
+                         `=---='
+  
+  
+       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  
+             佛祖保佑       永不宕机     永无BUG
+             
+ 
+            佛曰:
+                写字楼里写字间，写字间里程序员；
+                程序人员写程序，又拿程序换酒钱。
+                酒醒只在网上坐，酒醉还来网下眠；
+                酒醉酒醒日复日，网上网下年复年。
+                但愿老死电脑间，不愿鞠躬老板前；
+                奔驰宝马贵者趣，公交自行程序员。
+                别人笑我忒疯癫，我笑自己命太贱；
+                不见满街漂亮妹，哪个归得程序员？
+                
+                                                来自 ZeroWolf233  2024.7.30 10:51
+"""
