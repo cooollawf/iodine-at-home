@@ -63,7 +63,7 @@ JWT_SECRET = ''
 - 推进 OpenBMCLAPI 节点 与 三大运营商 相关合作的开展。
 
 [**SALTWOOD**](https://github.com/SALTWOOD)
-- [93@Home](https://github.com/SaltWood-Studio/Open93AtHome) - 提供了创建该项目的灵感。
+- [93@Home](https://github.com/SaltWood-Studio/Open93AtHome) - 提供了创建该项目的灵感及参考。
 - [CSharp-OpenBMCLAPI](https://github.com/SaltWood-Studio/CSharp-OpenBMCLAPI) - 提供了 README 文件的参考。
 - 回答了我提过的许多弱智问题，推动了项目的实现。
 - 提供了原生实现 Avro 的部分代码。
