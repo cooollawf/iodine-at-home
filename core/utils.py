@@ -17,20 +17,6 @@ logging.add(sys.stdout, format="<green>{level}</green>:     {message}", level="I
 logging.add(sys.stdout, format="<red>{level}</red>:     {message}", level="ERROR")
 logging.add(sys.stdout, format="<yellow>{level}</yellow>:     {message}", level="WARNING")
 
-AVRO_SCHEMA = {
-    'type': 'array',
-    'items': {
-        'name': 'FileListEntry',
-        'type': 'record',
-        'fields': [
-            {'name': 'path', 'type': 'string'},
-            {'name': 'hash', 'type': 'string'},
-            {'name': 'size', 'type': 'long'},
-            {'name': 'mtime', 'type': 'long'}
-        ]
-    }
-}
-
 all_figures = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
 all_small_letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']
 def encode_jwt(data, secret: str | None = settings.JWT_SECRET):

