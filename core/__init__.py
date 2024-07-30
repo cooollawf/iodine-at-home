@@ -82,6 +82,8 @@ async def on_connect(sid, *args):
     if cluster and cluster.secret == utils.decode_jwt(token)['cluster_secret']:
         await sio.save_session(sid, {"cluster_id": cluster.id, "cluster_secret": cluster.secret, "token": token})
         logger.info(f"客户端 {sid} 连接成功（CLUSTER_ID: {cluster.id}）")
+        # 连接成功后触发 enable 事件
+        await sio.emit('enable', {"cluster_id": cluster.id}, room=sid)
     else:
         sio.disconnect(sid)
         logger.info(f"客户端 {sid} 连接失败（原因: 认证失败）")
@@ -111,8 +113,7 @@ async def on_cluster_enable(sid, data, *args):
 
         bandwidth = 1.25/elapsed_time
         print(f"{url} {response.status_code} {response.text}")
-        logger.info(f"{sid} 启用了集群（{data}），访问时间：{elapsed_time:.2f}秒")
-
+        logger.info(f"{sid} 启用了集群（{data}），带宽：{bandwidth}")
     except requests.RequestException as err:
         logger.error(f"请求失败: {err}")
         # return [None, True]
