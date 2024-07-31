@@ -1,7 +1,9 @@
 import os
 import sys
 import jwt
+import time
 import httpx
+import base64
 import random
 import hashlib
 import zstandard as zstd
@@ -75,11 +77,44 @@ def compute_avro_bytes():
     for file in files_list:
         avro.writeString(file.path)
         avro.writeString(file.hash)
-        avro.writeLong(file.size)
-        avro.writeLong(file.mtime)
+        avro.writeVarInt(file.size)
+        avro.writeVarInt(file.mtime)
     avro.write(b'\x00')
     result = zstd.ZstdCompressor().compress(avro.io.getvalue())
     return result
+
+def to_url_safe_base64_string(byte_data):
+    return base64.urlsafe_b64encode(byte_data).rstrip(b'=').decode('utf-8')
+
+# 将整数转换为base36字符串
+def base36encode(number):
+    if not isinstance(number, int):
+        raise TypeError('number must be an integer')
+    if number < 0:
+        raise ValueError('number must be positive')
+
+    alphabet = '0123456789abcdefghijklmnopqrstuvwxyz'
+    base36 = ''
+    while number:
+        number, i = divmod(number, 36)
+        base36 = alphabet[i] + base36
+    return base36 or alphabet[0]
+
+def get_sign(path, cluster):
+    try:
+        sha1 = hashlib.sha1()
+    except Exception as e:
+        print(e)
+        return None
+
+    timestamp = int(time.time() + 5 * 60)
+    e = base36encode(timestamp)
+    sign_data = (cluster.secret + path + e).encode('utf-8')
+    sha1.update(sign_data)
+    sign_bytes = sha1.digest()
+    sign = to_url_safe_base64_string(sign_bytes)
+    # print(f"?s={sign}&e={e}")
+    return f"?s={sign}&e={e}"
 
 # async def get_sign(file: str, cluster: str):
     

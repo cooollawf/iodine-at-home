@@ -5,19 +5,25 @@ import core.database as database
 class Cluster:
     def __init__(self, id: str):
         if database.query_cluster_data(id).any().any():
-            self.id = str(id)
-            self.secret = str(database.query_cluster_data(id)["CLUSTER_SECRET"].item())
-            self.name = str(database.query_cluster_data(id)["CLUSTER_NAME"].item())
-            self.trust = int(database.query_cluster_data(id)["CLUSTER_TRUST"].item())
-            self.isBanned = int(database.query_cluster_data(id)["CLUSTER_ISBANNED"].item())
-            self.ban_reason = str(database.query_cluster_data(id)["CLUSTER_BANREASON"].item())
+            self.id = id
+            self.update()
         else:
             return False
     
-    def __update__(self, name: str = None, secret: str = None, bandwidth: int = None, isBanned: bool = None, ban_reason: str = None,trust: int = None):
-        database.update_cluster(self.id, name=name, secret=secret, bandwidth=bandwidth, trust=trust, is_banned=isBanned, ban_reason=ban_reason)
+    def update(self):
+        self.secret = str(database.query_cluster_data(self.id)["CLUSTER_SECRET"].item())
+        self.name = str(database.query_cluster_data(self.id)["CLUSTER_NAME"].item())
+        self.trust = int(database.query_cluster_data(self.id)["CLUSTER_TRUST"].item())
+        self.isBanned = int(database.query_cluster_data(self.id)["CLUSTER_ISBANNED"].item())
+        self.ban_reason = str(database.query_cluster_data(self.id)["CLUSTER_BANREASON"].item())
+        self.host = str(database.query_cluster_data(self.id)["CLUSTER_HOST"].item())
+        self.port = int(database.query_cluster_data(self.id)["CLUSTER_PORT"].item())
+        self.version = str(database.query_cluster_data(self.id)["CLUSTER_VERSION"].item())
+        self.runtime = str(database.query_cluster_data(self.id)["CLUSTER_RUNTIME"].item())
 
-            
+    def edit(self, name: str = None, secret: str = None, bandwidth: int = None, trust: int = None, isBanned: bool = None, ban_reason: str = None, host: str = None, port: int = None, version: str = None, runtime: str = None):
+        database.edit_cluster(self.id, name=name, secret=secret, bandwidth=bandwidth, trust=trust, is_banned=isBanned, ban_reason=ban_reason, host=host, port=port, version=version, runtime=runtime)
+        self.update()
 class Avro:
     def __init__(self, initial_bytes: bytes = b"", encoding: str = "utf-8") -> None:
         self.io = io.BytesIO(initial_bytes)
@@ -111,6 +117,12 @@ class Avro:
         self.write((data >> 16) & 0xFF)
         self.write((data >> 8) & 0xFF)
         self.write((data >> 0) & 0xFF)
+
+    def __sizeof__(self) -> int:
+        return self.io.tell()
+
+    def __len__(self) -> int:
+        return self.io.tell()
     
     @staticmethod
     def getVarInt(data: int):

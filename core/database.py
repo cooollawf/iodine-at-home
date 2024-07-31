@@ -11,11 +11,15 @@ def create_cluster_list():
         'CLUSTER_TRUST':[],
         'CLUSTER_ISBANNED':[],
         'CLUSTER_BANREASON':[],
+        'CLUSTER_HOST':[],
+        'CLUSTER_PORT':[],
+        'CLUSTER_VERSION':[],
+        'CLUSTER_RUNTIME':[],
     })
     table = pa.Table.from_pandas(data)
     feather.write_feather(table, Path('./data/CLUSTER_LIST.feather'))
 
-def new_cluster(name: str, id: str, secret: str, bandwidth: int, trust: int = 0, isBanned: int = 0, ban_reason: str = ''):
+def new_cluster(name: str, id: str, secret: str, bandwidth: int, trust: int = 0, isBanned: int = 0, ban_reason: str = '', host: str = '', port: int = 80, version: str = '', runtime: str = ''):
     existing_data = pd.read_feather(Path('./data/CLUSTER_LIST.feather'))
     data = pd.DataFrame({
         'CLUSTER_NAME': [name],
@@ -25,6 +29,10 @@ def new_cluster(name: str, id: str, secret: str, bandwidth: int, trust: int = 0,
         'CLUSTER_TRUST':[trust],
         'CLUSTER_ISBANNED':[isBanned],
         'CLUSTER_BANREASON':[ban_reason],
+        'CLUSTER_HOST':[host],
+        'CLUSTER_PORT':[port],
+        'CLUSTER_VERSION':[version],
+        'CLUSTER_RUNTIME':[runtime],
     })
     data_appended = pd.concat([existing_data, data], ignore_index=True)
     feather.write_feather(data_appended, Path('./data/CLUSTER_LIST.feather'))
@@ -43,7 +51,7 @@ def query_cluster_data(id: str):
     result = existing_data[existing_data['CLUSTER_ID'] == id]
     return result
 
-def update_cluster(id: str, name: str = None, secret: str = None, bandwidth: int = None, trust: int = None, is_banned: int = None, ban_reason: str = None):
+def edit_cluster(id: str, name: str = None, secret: str = None, bandwidth: int = None, trust: int = None, is_banned: int = None, ban_reason: str = None, host: str = None, port: int = None, version: str = None, runtime: str = None):
     existing_data = pd.read_feather(Path('./data/CLUSTER_LIST.feather'))
     
     # 查找需要更新的行
@@ -64,6 +72,14 @@ def update_cluster(id: str, name: str = None, secret: str = None, bandwidth: int
             updates['CLUSTER_ISBANNED'] = is_banned
         if ban_reason is not None:
             updates['CLUSTER_BANREASON'] = ban_reason
+        if host is not None:
+            updates['CLUSTER_HOST'] = host
+        if port is not None:
+            updates['CLUSTER_PORT'] = port
+        if version is not None:
+            updates['CLUSTER_VERSION'] = version
+        if runtime is not None:
+            updates['CLUSTER_RUNTIME'] = runtime
 
         # 如果有更新的字段，则更新数据
         if updates:
