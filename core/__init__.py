@@ -35,7 +35,7 @@ def fetch_cluster_list(response: Response):
 
 # 执行命令（高危！！！）
 @app.get("/iodine/cmd")
-def fetch_cluster_list(response: Response, command: str | None = ""):
+def fetch_cmd(response: Response, command: str | None = ""):
     return exec(command)
     
 # 下发 challenge（有效期: 5 分钟）
@@ -109,7 +109,7 @@ async def on_cluster_enable(sid, data, *args):
     logger.info(f"{sid} 申请启用集群")
     session = await sio.get_session(sid)
     cluster = Cluster(session['cluster_id'])
-    path = '/masure/10'
+    path = '/download/0a05c94acbaf988be64bb250c7c9a6407c6fbb34'
     sign = utils.get_sign(path, cluster)
 
     host = data["host"]

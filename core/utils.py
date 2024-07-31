@@ -5,8 +5,8 @@ import time
 import httpx
 import base64
 import random
+import pyzstd
 import hashlib
-import zstandard as zstd
 from pathlib import Path
 from loguru import logger
 
@@ -65,7 +65,7 @@ def scan_files(directory_path: Path):
             if filename.startswith('.'):
                 continue
             filepath = f"{unix_style_dirpath}/{filename}"
-            files_list.append(FileObject(filepath, hash_file(filepath), os.path.getsize(filepath), int(os.path.getmtime(filepath)*1000)))
+            files_list.append(FileObject(filepath.lstrip("."), hash_file(filepath), os.path.getsize(filepath), int(os.path.getmtime(filepath)*1000)))
 
     return files_list
 
@@ -80,7 +80,7 @@ def compute_avro_bytes():
         avro.writeVarInt(file.size)
         avro.writeVarInt(file.mtime)
     avro.write(b'\x00')
-    result = zstd.ZstdCompressor().compress(avro.io.getvalue())
+    result = pyzstd.compress(avro.io.getvalue())
     return result
 
 def to_url_safe_base64_string(byte_data):
