@@ -2,11 +2,13 @@ import os
 import sys
 import jwt
 import time
+import json
 import httpx
 import base64
 import random
 import pyzstd
 import hashlib
+import aiofiles
 from pathlib import Path
 from loguru import logger
 
@@ -21,23 +23,43 @@ logging.add(sys.stdout, format="<yellow>{level}</yellow>:     {message}", level=
 
 all_figures = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
 all_small_letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']
+
+# 读缓存
+def read_from_cache(filename: str):
+    cache_file = Path(f"./data/{filename}")
+    with open(cache_file, "rb") as f:
+        filelist_content = f.read()
+        filelist = filelist_content
+    return filelist
+
+# 写缓存
+def write_to_cache(filename: str, filelist):
+    cache_file = Path(f"./data/{filename}")
+    with open(cache_file, 'wb') as f:
+        f.write(filelist)
+
+# JWT 加密
 def encode_jwt(data, secret: str | None = settings.JWT_SECRET):
     result = jwt.encode(data, secret, algorithm='HS256')
     return result
 
+# JWT 解密
 def decode_jwt(data, secret: str | None = settings.JWT_SECRET):
     result = jwt.decode(data, secret, algorithms=['HS256'])
     return result
 
+# 随机生成字符
 def generate_random_character():
     return random.choice(all_figures + all_small_letters)
 
+# 随机生成字符串
 def generate_random_token(length):
     result = ''
     for i in range(length):
         result += generate_random_character()
     return result
 
+# 文件 SHA-1 值
 def hash_file(filename, algorithm: str | None = 'sha1'):
     """此函数返回传入文件的 SHA-1 或其他哈希值（取决于指定的算法）"""
     # 根据算法创建哈希实例
@@ -52,6 +74,7 @@ def hash_file(filename, algorithm: str | None = 'sha1'):
     # 返回哈希值的十六进制形式
     return hash_algorithm.hexdigest()
 
+# 扫文件
 def scan_files(directory_path: Path):
     """* 递归扫描目录及其子目录，返回该目录下所有文件的路径集合"""
     files_list = []
@@ -69,7 +92,8 @@ def scan_files(directory_path: Path):
 
     return files_list
 
-def compute_avro_bytes():
+# 保存经计算、压缩过的 Avro 格式的文件列表
+def save_calculate_filelist():
     files_list = scan_files('./files/')
     avro = Avro()
     avro.writeVarInt(len(files_list))
@@ -81,6 +105,8 @@ def compute_avro_bytes():
         avro.writeVarInt(file.mtime)
     avro.write(b'\x00')
     result = pyzstd.compress(avro.io.getvalue())
+    write_to_cache("filelist.avro", result)
+    logger.info("文件列表计算成功，已保存至本地。")
     return result
 
 def to_url_safe_base64_string(byte_data):
@@ -100,6 +126,7 @@ def base36encode(number):
         base36 = alphabet[i] + base36
     return base36 or alphabet[0]
 
+# 获取节点 sign
 def get_sign(path, cluster):
     try:
         sha1 = hashlib.sha1()

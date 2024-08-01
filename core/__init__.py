@@ -23,10 +23,16 @@ from starlette.applications import Starlette
 from socketio.asgi import ASGIApp
 from socketio.async_server import AsyncServer
 
+from apscheduler.schedulers.background import BackgroundScheduler, BaseScheduler
+
 # 初始化变量
 app = FastAPI()
 sio = AsyncServer(async_mode='asgi', cors_allowed_origins='*')
 socket = ASGIApp(sio)
+
+# 定时执行
+scheduler = BackgroundScheduler()
+scheduler.add_job(utils.save_calculate_filelist, 'interval', minutes=10, id='refresh_filelist')
 
 # 节点列表 HTML 界面
 @app.get("/iodine/cluster-list")
@@ -72,7 +78,7 @@ def fetch_configuration():
 @app.get("/openbmclapi/files")
 def fetch_filesList():
     # TODO: 获取文件列表
-    return HTMLResponse(content=utils.compute_avro_bytes(), media_type="application/octet-stream")
+    return HTMLResponse(content=utils.read_from_cache("filelist.avro"), media_type="application/octet-stream")
 
 # 普通下载（从主控或节点拉取文件）
 @app.get("/files/{path:path}")
@@ -99,7 +105,7 @@ async def on_connect(sid, *args):
 
 # 节点端退出连接时
 @sio.on('disconnect')
-def on_disconnect(sid, *args):
+async def on_disconnect(sid, *args):
     logger.info(f"客户端 {sid} 关闭了连接")
 
 # 节点启动时
@@ -136,7 +142,7 @@ async def on_cluster_enable(sid, data, *args):
 
 # 节点保活时
 @sio.on('keep-alive')
-def on_cluster_keep_alive(sid, data, *args):
+async def on_cluster_keep_alive(sid, data, *args):
     # TODO: 当节点保活时检测节点是否正确上报数据
     logger.info(f"{sid} 保活（请求数: {data['hits']} | 请求数: {data['bytes']}）")
     return [None, datetime.now(timezone.utc).isoformat()]
@@ -149,10 +155,14 @@ def init():
     if not os.path.exists(Path('./files/')):
         os.makedirs(Path('./files/'))
     logger.info(f'加载中...')
+    logger.info(f'正在初次计算文件列表...')
+    utils.save_calculate_filelist()
     app.mount('/', socket)
     try:
-        uvicorn.run(app, host=settings.HOST, port=settings.PORT)
+        scheduler.start()
+        uvicorn.run(app, host=settings.HOST, port=settings.PORT, access_log=False)
     except KeyboardInterrupt:
+        scheduler.shutdown()
         logger.info('主控已关闭。')
 
 
