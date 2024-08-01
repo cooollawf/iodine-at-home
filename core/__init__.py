@@ -115,7 +115,7 @@ async def on_cluster_enable(sid, data, *args):
     logger.info(f"{sid} 申请启用集群")
     session = await sio.get_session(sid)
     cluster = Cluster(session['cluster_id'])
-    path = '/download/0a05c94acbaf988be64bb250c7c9a6407c6fbb34'
+    path = '/mesure/10' # 测速不能拉文件，得请求mesure路由
     sign = utils.get_sign(path, cluster)
 
     host = data["host"]
@@ -168,7 +168,7 @@ def init():
 
 
 
-
+"""
 #                      _oo0oo_
 #                     o8888888o
 #                     88" . "88
@@ -190,7 +190,7 @@ def init():
 
 
 #    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  
-#       佛祖保佑       永不宕机       永无BUG
+#       佛祖保佑         永不宕机        永无BUG
          
 
 #         佛曰:
@@ -203,4 +203,5 @@ def init():
 #             别人笑我忒疯癫，我笑自己命太贱；
 #             不见满街漂亮妹，哪个归得程序员？
 
-#           来自 ZeroWolf233  2024.7.30 10:51
+#                        来自 ZeroWolf233  2024.7.30 10:51
+"""
