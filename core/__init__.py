@@ -109,7 +109,7 @@ async def on_cluster_enable(sid, data, *args):
     logger.info(f"{sid} 申请启用集群")
     session = await sio.get_session(sid)
     cluster = Cluster(session['cluster_id'])
-    path = '/mesure/10'
+    path = '/mesure/10' # 测速不能拉文件，得请求mesure路由
     sign = utils.get_sign(path, cluster)
 
     host = data["host"]
@@ -180,7 +180,7 @@ def init():
 
 
 #    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  
-#       佛祖保佑       永不宕机       永无BUG
+#       佛祖保佑         永不宕机        永无BUG
          
 
 #         佛曰:
