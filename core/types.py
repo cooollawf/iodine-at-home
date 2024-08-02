@@ -1,4 +1,6 @@
 import io
+import os
+import core.utils as utils
 from typing import Optional
 import core.database as database
 
@@ -135,8 +137,8 @@ class Avro:
         return r
 
 class FileObject:
-    def __init__(self, path: str, hash: str, size: int, mtime: int):
-        self.path = path
-        self.hash = hash
-        self.size = size
-        self.mtime = mtime
+    def __init__(self, filepath: str):
+        self.path = filepath.lstrip(".")
+        self.hash = utils.hash_file(filepath)
+        self.size = os.path.getsize(filepath)
+        self.mtime = int(os.path.getmtime(filepath)*1000)

@@ -4,6 +4,7 @@ import hmac
 import time
 import hashlib
 from pathlib import Path
+from random import choice
 from datetime import datetime, timezone
 
 import uvicorn
@@ -29,6 +30,7 @@ from apscheduler.schedulers.background import BackgroundScheduler, BaseScheduler
 app = FastAPI()
 sio = AsyncServer(async_mode='asgi', cors_allowed_origins='*')
 socket = ASGIApp(sio)
+enable_cluster_list = []
 
 # 定时执行
 scheduler = BackgroundScheduler()
@@ -57,7 +59,7 @@ def fetch_challenge(response: Response, clusterId: str | None = ""):
 
 # 下发令牌（有效期: 1 天）
 @app.post("/openbmclapi-agent/token")
-def fetch_token(resoponse: Response ,clusterId: str = Form(...), challenge: str = Form(...), signature: str = Form(...)):
+def fetch_token(request: Request, resoponse: Response, clusterId: str = Form(...), challenge: str = Form(...), signature: str = Form(...)):
     cluster = Cluster(clusterId)
     h = hmac.new(cluster.secret.encode('utf-8'), digestmod=hashlib.sha256)
     h.update(challenge.encode())
@@ -83,7 +85,17 @@ def fetch_filesList():
 # 普通下载（从主控或节点拉取文件）
 @app.get("/files/{path:path}")
 def download_file(path: str):
-    return FileResponse(Path(f'./files/{path}'))
+    if Path(f"./files/{path}").is_file() == False:
+        return PlainTextResponse("Not Found", 404)
+    if Path(f"./files/{path}").is_dir == True:
+        return PlainTextResponse("Not Found", 404)
+    if len(enable_cluster_list) == 0:
+        return FileResponse(f"./files/{path}")
+    else:
+        cluster = choice(enable_cluster_list)
+        file = FileObject(f"./files/{path}")
+        url = utils.get_url(cluster, f"/download/{file.hash}", utils.get_sign(file.hash, cluster)) 
+        return RedirectResponse(url)
 
 # 紧急同步（从主控拉取文件）
 @app.get("/openbmclapi/download/{hash}")
@@ -115,30 +127,16 @@ async def on_cluster_enable(sid, data, *args):
     logger.info(f"{sid} 申请启用集群")
     session = await sio.get_session(sid)
     cluster = Cluster(session['cluster_id'])
-    path = '/mesure/10' # 测速不能拉文件，得请求mesure路由
-    sign = utils.get_sign(path, cluster)
-
-    host = data["host"]
-    port = data["port"]
-    version = data["version"]
-    runtime = data["flavor"]["runtime"]
-
-    cluster.edit(host=host, port=port, version=version, runtime=runtime)
-    url = f"http://{host}:{port}{path}{sign}"
-
-    try:
-        start_time = time.time()
-        response = requests.get(url)
-        end_time = time.time()
-        elapsed_time = end_time - start_time
-        # 计算测速时间
-        bandwidth = 1.25/elapsed_time # 计算带宽
-        print(f"{url} {response.status_code} {response.text}")
-        logger.info(f"{sid} 启用了集群，带宽：{bandwidth}")
+    cluster.edit(host = data["host"], port = data["port"], version = data["version"], runtime = data["flavor"]["runtime"])
+    time.sleep(1)
+    bandwidth = await utils.measure_cluster(20, cluster)
+    if bandwidth[0] and bandwidth[1] >= 10:
+        enable_cluster_list.append(cluster)
         return [None, True]
-    except requests.RequestException as err:
-        logger.error(f"请求失败: {err}")
-        return [{"message": "把头低下！鼠雀之辈！啊哈哈哈哈！"}]
+    elif bandwidth[0] and bandwidth[1] < 10:
+        return [{"message": f"错误: 测量带宽小于 10Mbps，请重试尝试上线（测量得{bandwidth[1]}）"}]
+    else:
+        return [{"message": f"错误: {bandwidth[1]}"}]
 
 # 节点保活时
 @sio.on('keep-alive')
@@ -148,6 +146,17 @@ async def on_cluster_keep_alive(sid, data, *args):
     return [None, datetime.now(timezone.utc).isoformat()]
     # return [None, False]
 
+# 节点禁用时
+@sio.on('disable')
+async def on_cluster_disable(sid, *args):
+    # TODO: 启动节点时的逻辑以及检查节点是否符合启动要求部分
+    logger.info(f"{sid} 申请禁用集群")
+    session = await sio.get_session(sid)
+    cluster = Cluster(session['cluster_id'])
+    enable_cluster_list.remove(cluster)
+    logger.info(f"{sid} 禁用集群")
+    return [None, True]
+
 def init():
     # 检查文件夹是否存在
     if not os.path.exists(Path('./data/')):
@@ -155,8 +164,6 @@ def init():
     if not os.path.exists(Path('./files/')):
         os.makedirs(Path('./files/'))
     logger.info(f'加载中...')
-    logger.info(f'正在初次计算文件列表...')
-    utils.save_calculate_filelist()
     app.mount('/', socket)
     try:
         scheduler.start()

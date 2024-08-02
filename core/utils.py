@@ -88,7 +88,7 @@ def scan_files(directory_path: Path):
             if filename.startswith('.'):
                 continue
             filepath = f"{unix_style_dirpath}/{filename}"
-            files_list.append(FileObject(filepath.lstrip("."), hash_file(filepath), os.path.getsize(filepath), int(os.path.getmtime(filepath)*1000)))
+            files_list.append(FileObject(filepath))
 
     return files_list
 
@@ -131,23 +131,35 @@ def get_sign(path, cluster):
     try:
         sha1 = hashlib.sha1()
     except Exception as e:
-        print(e)
+        logger.error(e)
         return None
-
-    timestamp = int(time.time() + 5 * 60)
+    
+    timestamp = int(time.time() * 1000 + 5 * 60)
     e = base36encode(timestamp)
     sign_data = (cluster.secret + path + e).encode('utf-8')
     sha1.update(sign_data)
     sign_bytes = sha1.digest()
-    sign = to_url_safe_base64_string(sign_bytes)
+    sign = to_url_safe_base64_string(sign_bytes).replace("=", "")
     # print(f"?s={sign}&e={e}")
     return f"?s={sign}&e={e}"
 
-# async def get_sign(file: str, cluster: str):
+def get_url(cluster: Cluster, path: str, sign: str):
+    url = f"http://{cluster.host}:{cluster.port}{path}{sign}"
+    return url
     
-
-# async def check_cluster(url):
-#     is_valid = False
-#     async with httpx.AsyncClient() as client:
-#         response = await client.get(url, headers=settings.HEADERS)
-#     if response
+async def measure_cluster(size: int, cluster: Cluster):
+    path = f"/measure/{str(size)}"
+    sign = get_sign(path, cluster)
+    url = get_url(cluster, path, sign)
+    logger.info(url)
+    try:
+        start_time = time.time()
+        async with httpx.AsyncClient() as client:
+            await client.get(url)
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        # 计算测速时间
+        bandwidth = size / elapsed_time * 8 # 计算带宽
+        return [True, bandwidth]
+    except Exception as e:
+        return [False, e]
