@@ -92,9 +92,9 @@ def download_file(path: str):
     if len(enable_cluster_list) == 0:
         return FileResponse(f"./files/{path}")
     else:
-        cluster = Cluster(choice(enable_cluster_list))
+        cluster = choice(enable_cluster_list)
         file = FileObject(f"./files/{path}")
-        url = utils.get_url(cluster, f"/download/{file.hash}", utils.get_sign(file.hash, cluster)) 
+        url = utils.get_url(cluster["host"], cluster["port"], f"/download/{file.hash}", utils.get_sign(file.hash, cluster["secret"])) 
         return RedirectResponse(url, 302)
 
 # 紧急同步（从主控拉取文件）
