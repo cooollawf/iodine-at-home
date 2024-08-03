@@ -127,7 +127,7 @@ def base36encode(number):
     return base36 or alphabet[0]
 
 # 获取节点 sign
-def get_sign(path, cluster):
+def get_sign(path, secret):
     try:
         sha1 = hashlib.sha1()
     except Exception as e:
@@ -136,21 +136,20 @@ def get_sign(path, cluster):
     
     timestamp = int(time.time() * 1000 + 5 * 60)
     e = base36encode(timestamp)
-    sign_data = (cluster.secret + path + e).encode('utf-8')
+    sign_data = (secret + path + e).encode('utf-8')
     sha1.update(sign_data)
     sign_bytes = sha1.digest()
     sign = to_url_safe_base64_string(sign_bytes).replace("=", "")
-    # print(f"?s={sign}&e={e}")
     return f"?s={sign}&e={e}"
 
-def get_url(cluster: Cluster, path: str, sign: str):
-    url = f"http://{cluster.host}:{cluster.port}{path}{sign}"
+def get_url(host: str, port: str, path: str, sign: str):
+    url = f"http://{host}:{port}{path}{sign}"
     return url
     
-async def measure_cluster(size: int, cluster: Cluster):
+async def measure_cluster(size: int, cluster):
     path = f"/measure/{str(size)}"
-    sign = get_sign(path, cluster)
-    url = get_url(cluster, path, sign)
+    sign = get_sign(path, cluster["secret"])
+    url = get_url(cluster["host"], cluster["port"], path, sign)
     logger.info(url)
     try:
         start_time = time.time()
@@ -163,3 +162,11 @@ async def measure_cluster(size: int, cluster: Cluster):
         return [True, bandwidth]
     except Exception as e:
         return [False, e]
+    
+def hum_convert(value: int):
+    units = ["B", "KiB", "MiB", "GiB", "TiB", "PiB"]
+    size = 1024.0
+    for i in range(len(units)):
+        if (value / size) < 1:
+            return "%.2f%s" % (value, units[i])
+        value = value / size

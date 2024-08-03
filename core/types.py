@@ -15,6 +15,7 @@ class Cluster:
     def update(self):
         self.secret = str(database.query_cluster_data(self.id)["CLUSTER_SECRET"].item())
         self.name = str(database.query_cluster_data(self.id)["CLUSTER_NAME"].item())
+        self.bandwidth = int(database.query_cluster_data(self.id)["CLUSTER_BANDWIDTH"].item())
         self.trust = int(database.query_cluster_data(self.id)["CLUSTER_TRUST"].item())
         self.isBanned = int(database.query_cluster_data(self.id)["CLUSTER_ISBANNED"].item())
         self.ban_reason = str(database.query_cluster_data(self.id)["CLUSTER_BANREASON"].item())
@@ -27,8 +28,8 @@ class Cluster:
         database.edit_cluster(self.id, name=name, secret=secret, bandwidth=bandwidth, trust=trust, isBanned=isBanned, ban_reason=ban_reason, host=host, port=port, version=version, runtime=runtime)
         self.update()
     
-    def __repr__(self):
-        return f"Cluster({self.id})"
+    def json(self):
+        return {"id": self.id, "secret": self.secret, "trust": self.trust, "bandwidth": self.bandwidth, "trust": self.trust, "host": self.host, "port": self.port}
 class Avro:
     def __init__(self, initial_bytes: bytes = b"", encoding: str = "utf-8") -> None:
         self.io = io.BytesIO(initial_bytes)

@@ -30,7 +30,7 @@ from apscheduler.schedulers.background import BackgroundScheduler, BaseScheduler
 app = FastAPI()
 sio = AsyncServer(async_mode='asgi', cors_allowed_origins='*')
 socket = ASGIApp(sio)
-enable_cluster_list = []
+enable_cluster_list = list()
 
 # 定时执行
 scheduler = BackgroundScheduler()
@@ -92,7 +92,7 @@ def download_file(path: str):
     if len(enable_cluster_list) == 0:
         return FileResponse(f"./files/{path}")
     else:
-        cluster = choice(enable_cluster_list)
+        cluster = Cluster(choice(enable_cluster_list))
         file = FileObject(f"./files/{path}")
         url = utils.get_url(cluster, f"/download/{file.hash}", utils.get_sign(file.hash, cluster)) 
         return RedirectResponse(url, 302)
@@ -129,9 +129,9 @@ async def on_cluster_enable(sid, data, *args):
     cluster = Cluster(str(session['cluster_id']))
     cluster.edit(host = data["host"], port = data["port"], version = data["version"], runtime = data["flavor"]["runtime"])
     time.sleep(1)
-    bandwidth = await utils.measure_cluster(20, cluster)
+    bandwidth = await utils.measure_cluster(20, cluster.json())
     if bandwidth[0] and bandwidth[1] >= 10:
-        enable_cluster_list.append(cluster)
+        enable_cluster_list.append(cluster.json())
         logger.info(f"测速结果: {bandwidth[1]}")
         return [None, True]
     elif bandwidth[0] and bandwidth[1] < 10:
@@ -142,8 +142,7 @@ async def on_cluster_enable(sid, data, *args):
 # 节点保活时
 @sio.on('keep-alive')
 async def on_cluster_keep_alive(sid, data, *args):
-    # TODO: 当节点保活时检测节点是否正确上报数据
-    logger.info(f"{sid} 保活（请求数: {data['hits']} 次 | 请求量: {data['bytes']}）")
+    logger.info(f"{sid} 保活（请求数: {data['hits']} 次 | 请求量: {utils.hum_convert(data['bytes'])}）")
     return [None, datetime.now(timezone.utc).isoformat()]
     # return [None, False]
 
@@ -154,10 +153,11 @@ async def on_cluster_disable(sid, *args):
     logger.info(f"{sid} 申请禁用集群")
     session = await sio.get_session(sid)
     cluster = Cluster(str(session['cluster_id']))
-    logger.info(enable_cluster_list)
-    logger.info(cluster)
-    enable_cluster_list.remove(cluster)
-    logger.info(f"{sid} 禁用集群")
+    try:
+        enable_cluster_list.remove(cluster.json())
+        logger.info(f"{sid} 禁用集群")
+    except ValueError:
+        logger.info(f"{sid} 禁用集群失败（原因: 节点未启用）")
     return [None, True]
 
 
