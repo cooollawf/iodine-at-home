@@ -51,7 +51,7 @@ def query_cluster_data(id: str):
     result = existing_data[existing_data['CLUSTER_ID'] == id]
     return result
 
-def edit_cluster(id: str, name: str = None, secret: str = None, bandwidth: int = None, trust: int = None, is_banned: int = None, ban_reason: str = None, host: str = None, port: int = None, version: str = None, runtime: str = None):
+def edit_cluster(id: str, name: str = None, secret: str = None, bandwidth: int = None, trust: int = None, isBanned: int = None, ban_reason: str = None, host: str = None, port: int = None, version: str = None, runtime: str = None):
     existing_data = pd.read_feather(Path('./data/CLUSTER_LIST.feather'))
     
     # 查找需要更新的行
@@ -68,8 +68,8 @@ def edit_cluster(id: str, name: str = None, secret: str = None, bandwidth: int =
             updates['CLUSTER_BANDWIDTH'] = bandwidth
         if trust is not None:
             updates['CLUSTER_TRUST'] = trust
-        if is_banned is not None:
-            updates['CLUSTER_ISBANNED'] = is_banned
+        if isBanned is not None:
+            updates['CLUSTER_ISBANNED'] = isBanned
         if ban_reason is not None:
             updates['CLUSTER_BANREASON'] = ban_reason
         if host is not None:

@@ -24,8 +24,11 @@ class Cluster:
         self.runtime = str(database.query_cluster_data(self.id)["CLUSTER_RUNTIME"].item())
 
     def edit(self, name: str = None, secret: str = None, bandwidth: int = None, trust: int = None, isBanned: bool = None, ban_reason: str = None, host: str = None, port: int = None, version: str = None, runtime: str = None):
-        database.edit_cluster(self.id, name=name, secret=secret, bandwidth=bandwidth, trust=trust, is_banned=isBanned, ban_reason=ban_reason, host=host, port=port, version=version, runtime=runtime)
+        database.edit_cluster(self.id, name=name, secret=secret, bandwidth=bandwidth, trust=trust, isBanned=isBanned, ban_reason=ban_reason, host=host, port=port, version=version, runtime=runtime)
         self.update()
+    
+    def __repr__(self):
+        return f"Cluster({self.id})"
 class Avro:
     def __init__(self, initial_bytes: bytes = b"", encoding: str = "utf-8") -> None:
         self.io = io.BytesIO(initial_bytes)

@@ -95,7 +95,7 @@ def download_file(path: str):
         cluster = choice(enable_cluster_list)
         file = FileObject(f"./files/{path}")
         url = utils.get_url(cluster, f"/download/{file.hash}", utils.get_sign(file.hash, cluster)) 
-        return RedirectResponse(url)
+        return RedirectResponse(url, 302)
 
 # 紧急同步（从主控拉取文件）
 @app.get("/openbmclapi/download/{hash}")
@@ -126,12 +126,13 @@ async def on_cluster_enable(sid, data, *args):
     # TODO: 启动节点时的逻辑以及检查节点是否符合启动要求部分
     logger.info(f"{sid} 申请启用集群")
     session = await sio.get_session(sid)
-    cluster = Cluster(session['cluster_id'])
+    cluster = Cluster(str(session['cluster_id']))
     cluster.edit(host = data["host"], port = data["port"], version = data["version"], runtime = data["flavor"]["runtime"])
     time.sleep(1)
     bandwidth = await utils.measure_cluster(20, cluster)
     if bandwidth[0] and bandwidth[1] >= 10:
         enable_cluster_list.append(cluster)
+        logger.info(f"测速结果: {bandwidth[1]}")
         return [None, True]
     elif bandwidth[0] and bandwidth[1] < 10:
         return [{"message": f"错误: 测量带宽小于 10Mbps，请重试尝试上线（测量得{bandwidth[1]}）"}]
@@ -142,7 +143,7 @@ async def on_cluster_enable(sid, data, *args):
 @sio.on('keep-alive')
 async def on_cluster_keep_alive(sid, data, *args):
     # TODO: 当节点保活时检测节点是否正确上报数据
-    logger.info(f"{sid} 保活（请求数: {data['hits']} | 请求数: {data['bytes']}）")
+    logger.info(f"{sid} 保活（请求数: {data['hits']} 次 | 请求量: {data['bytes']}）")
     return [None, datetime.now(timezone.utc).isoformat()]
     # return [None, False]
 
@@ -152,10 +153,13 @@ async def on_cluster_disable(sid, *args):
     # TODO: 启动节点时的逻辑以及检查节点是否符合启动要求部分
     logger.info(f"{sid} 申请禁用集群")
     session = await sio.get_session(sid)
-    cluster = Cluster(session['cluster_id'])
+    cluster = Cluster(str(session['cluster_id']))
+    logger.info(enable_cluster_list)
+    logger.info(cluster)
     enable_cluster_list.remove(cluster)
     logger.info(f"{sid} 禁用集群")
     return [None, True]
+
 
 def init():
     # 检查文件夹是否存在
