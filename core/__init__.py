@@ -11,7 +11,6 @@ import uvicorn
 from fastapi import FastAPI, Header, Response, status, Request, Form
 from fastapi.responses import PlainTextResponse, RedirectResponse, FileResponse, HTMLResponse
 import uvicorn.config
-import requests
 
 import core.utils as utils
 import core.database as database
@@ -53,7 +52,7 @@ def fetch_challenge(response: Response, clusterId: str | None = ""):
     if cluster and cluster.isBanned == 0:
         return {"challenge": utils.encode_jwt({'cluster_id': clusterId, 'cluster_secret': cluster.secret, "exp": int(time.time()) + 1000 * 60 * 5})}
     elif cluster and cluster.isBanned == 1:
-        return PlainTextResponse(f"Your cluster has been banned for the following reasons: {cluster.ban_reason}", 403)
+        return PlainTextResponse(f"被ban力(可恶): {cluster.ban_reason}", 403)
     else:
         return PlainTextResponse("Not Found", 404)
 
@@ -123,7 +122,6 @@ async def on_disconnect(sid, *args):
 # 节点启动时
 @sio.on('enable')
 async def on_cluster_enable(sid, data, *args):
-    # TODO: 启动节点时的逻辑以及检查节点是否符合启动要求部分
     logger.info(f"{sid} 申请启用集群")
     session = await sio.get_session(sid)
     cluster = Cluster(str(session['cluster_id']))
