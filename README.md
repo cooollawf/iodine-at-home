@@ -14,7 +14,7 @@ _✨ 开源的文件分发主控，并尝试兼容 OpenBMCLAPI 客户端 ✨_
 <a href="./LICENSE">
     <img src="https://img.shields.io/github/license/Zero-Octagon/iodine-at-home.svg" alt="license">
 </a>
-<a>
+<a href="https://www.python.org/downloads/">
     <img src="https://img.shields.io/badge/python-3.9+-blue.svg" alt="python">
 </a>
 
