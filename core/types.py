@@ -13,16 +13,17 @@ class Cluster:
             return False
     
     def update(self):
-        self.secret = str(database.query_cluster_data(self.id)["CLUSTER_SECRET"].item())
-        self.name = str(database.query_cluster_data(self.id)["CLUSTER_NAME"].item())
-        self.bandwidth = int(database.query_cluster_data(self.id)["CLUSTER_BANDWIDTH"].item())
-        self.trust = int(database.query_cluster_data(self.id)["CLUSTER_TRUST"].item())
-        self.isBanned = int(database.query_cluster_data(self.id)["CLUSTER_ISBANNED"].item())
-        self.ban_reason = str(database.query_cluster_data(self.id)["CLUSTER_BANREASON"].item())
-        self.host = str(database.query_cluster_data(self.id)["CLUSTER_HOST"].item())
-        self.port = int(database.query_cluster_data(self.id)["CLUSTER_PORT"].item())
-        self.version = str(database.query_cluster_data(self.id)["CLUSTER_VERSION"].item())
-        self.runtime = str(database.query_cluster_data(self.id)["CLUSTER_RUNTIME"].item())
+        all_data = database.query_cluster_data(self.id)
+        self.secret = all_data["CLUSTER_SECRET"].item()
+        self.name = all_data["CLUSTER_NAME"].item()
+        self.bandwidth = int(all_data["CLUSTER_BANDWIDTH"].item())
+        self.trust = int(all_data["CLUSTER_TRUST"].item())
+        self.isBanned = all_data["CLUSTER_ISBANNED"].item()
+        self.ban_reason = all_data["CLUSTER_BANREASON"].item()
+        self.host = all_data["CLUSTER_HOST"].item()
+        self.port = int(all_data["CLUSTER_PORT"].item())
+        self.version = all_data["CLUSTER_VERSION"].item()
+        self.runtime = all_data["CLUSTER_RUNTIME"].item()
 
     def edit(self, name: str = None, secret: str = None, bandwidth: int = None, trust: int = None, isBanned: bool = None, ban_reason: str = None, host: str = None, port: int = None, version: str = None, runtime: str = None):
         database.edit_cluster(self.id, name=name, secret=secret, bandwidth=bandwidth, trust=trust, isBanned=isBanned, ban_reason=ban_reason, host=host, port=port, version=version, runtime=runtime)
