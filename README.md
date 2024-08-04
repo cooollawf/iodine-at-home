@@ -3,9 +3,6 @@
 
 <div align="center">
     <img src="https://socialify.git.ci/Zero-Octagon/iodine-at-home/image?description=1&language=1&name=1&owner=1&theme=Auto" alt="iodine-at-home" width="640" height="320" />
-</div>
-
-
 
 # iodine@home
 
@@ -17,6 +14,13 @@ _✨ 开源的文件分发主控，并尝试兼容 OpenBMCLAPI 客户端 ✨_
 <a href="https://www.python.org/downloads/">
     <img src="https://img.shields.io/badge/python-3.9+-blue.svg" alt="python">
 </a>
+</div>
+
+
+
+
+
+
 
 ## 📖 介绍
 
