@@ -14,16 +14,16 @@ class Cluster:
     
     def update(self):
         all_data = database.query_cluster_data(self.id)
-        self.secret = all_data["CLUSTER_SECRET"].item()
-        self.name = all_data["CLUSTER_NAME"].item()
+        self.secret = str(all_data["CLUSTER_SECRET"].item())
+        self.name = str(all_data["CLUSTER_NAME"].item())
         self.bandwidth = int(all_data["CLUSTER_BANDWIDTH"].item())
         self.trust = int(all_data["CLUSTER_TRUST"].item())
-        self.isBanned = all_data["CLUSTER_ISBANNED"].item()
-        self.ban_reason = all_data["CLUSTER_BANREASON"].item()
-        self.host = all_data["CLUSTER_HOST"].item()
+        self.isBanned = int(all_data["CLUSTER_ISBANNED"].item())
+        self.ban_reason = str(all_data["CLUSTER_BANREASON"].item())
+        self.host = str(all_data["CLUSTER_HOST"].item())
         self.port = int(all_data["CLUSTER_PORT"].item())
-        self.version = all_data["CLUSTER_VERSION"].item()
-        self.runtime = all_data["CLUSTER_RUNTIME"].item()
+        self.version = str(all_data["CLUSTER_VERSION"].item())
+        self.runtime = str(all_data["CLUSTER_RUNTIME"].item())
 
     def edit(self, name: str = None, secret: str = None, bandwidth: int = None, trust: int = None, isBanned: bool = None, ban_reason: str = None, host: str = None, port: int = None, version: str = None, runtime: str = None):
         database.edit_cluster(self.id, name=name, secret=secret, bandwidth=bandwidth, trust=trust, isBanned=isBanned, ban_reason=ban_reason, host=host, port=port, version=version, runtime=runtime)
