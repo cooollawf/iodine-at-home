@@ -11,6 +11,7 @@ import hashlib
 import aiofiles
 from pathlib import Path
 from loguru import logger
+from string import Template
 
 import core.settings as settings
 from core.types import Cluster, FileObject, Avro
@@ -23,6 +24,21 @@ logging.add(sys.stdout, format="<yellow>{level}</yellow>:     {message}", level=
 
 all_figures = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
 all_small_letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']
+
+def fi(template_str, variables):  
+    """  
+    使用变量字典替换模板字符串中的变量。
+    - 【参数】模板字符串：`包含要替换的变量的模板字符串`。
+
+    - 【参数】替换的变量字典：`要在模板字符串中替换的变量字典`。
+
+    - 返回结果：`替换了变量的模板字符串`。
+    """  
+    template = Template(template_str)  
+    replaced_str = template.substitute(variables)  
+    return replaced_str
+
+USERAGENT = fi(str(settings.settings.get('USERAGENT', 'iodine-ctrl')), {"version": settings.VERSION})
 
 # 读缓存
 def read_from_cache(filename: str):
@@ -154,7 +170,7 @@ async def measure_cluster(size: int, cluster):
     try:
         start_time = time.time()
         async with httpx.AsyncClient() as client:
-            await client.get(url)
+            await client.get(url, headers={"User-Agent": USERAGENT})
         end_time = time.time()
         elapsed_time = end_time - start_time
         # 计算测速时间

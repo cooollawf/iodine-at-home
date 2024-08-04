@@ -2,12 +2,15 @@ import os
 import sys
 import yaml
 import httpx
+from pathlib import Path
 from loguru import logger
-from dotenv import load_dotenv
-from dotenv import dotenv_values
+from dotenv import load_dotenv, dotenv_values
 
-currentPath = os.path.dirname(os.path.realpath(__file__))
-dotenvPath = os.path.join(currentPath, '../settings/.env')
+versionPath = Path('./VERSION')
+dotenvPath = Path('./settings/.env')
+
+with open(versionPath, 'r', encoding='UTF-8') as versionFile:
+    VERSION = versionFile.read()
 
 # 尝试打开配置文件
 env_status = load_dotenv(dotenvPath)
@@ -25,4 +28,3 @@ settings = dotenv_values(dotenvPath)
 HOST = str(settings.get('HOST', '0.0.0.0'))
 PORT = int(settings.get('PORT', 8080))
 JWT_SECRET = str(settings.get('JWT_SECRET', '114514'))
-HEADERS = str(settings.get('HEADERS', 'iodine-ctrl'))
