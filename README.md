@@ -15,7 +15,7 @@ _✨ 开源的文件分发主控，并尝试兼容 OpenBMCLAPI 客户端 ✨_
     <img src="https://img.shields.io/github/license/Zero-Octagon/iodine-at-home.svg" alt="license">
 </a>
 <a>
-<img src="https://img.shields.io/badge/python-3.9+-blue.svg" alt="python">
+    <img src="https://img.shields.io/badge/python-3.9+-blue.svg" alt="python">
 </a>
 
 ## 📖 介绍
@@ -27,7 +27,7 @@ _✨ 开源的文件分发主控，并尝试兼容 OpenBMCLAPI 客户端 ✨_
 ```shell
 # 安装环境
 pip install -r requirements.txt
-
+ 
 # 运行主程序
 python main.py
 ```
