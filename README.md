@@ -44,10 +44,10 @@ python main.py
 # 主配置
 HOST = '0.0.0.0'
 PORT = 8080
-HEADERS = ''
+USERAGENT = 'iodine-ctrl/$version'
 
 # 机密配置，请勿外传！！！
-JWT_SECRET = ''
+JWT_SECRET = '114514'
 ```
 
 ## 📖 许可证
