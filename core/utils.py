@@ -153,10 +153,12 @@ def get_sign(path, secret):
     sign = to_url_safe_base64_string(sign_bytes).replace("=", "")
     return f"?s={sign}&e={e}"
 
+# 获取节点mesure的url
 def get_url(host: str, port: str, path: str, sign: str):
     url = f"http://{host}:{port}{path}{sign}"
     return url
-    
+
+# 对节点进行测速
 async def measure_cluster(size: int, cluster):
     path = f"/measure/{str(size)}"
     sign = get_sign(path, cluster["secret"])
@@ -174,6 +176,7 @@ async def measure_cluster(size: int, cluster):
     except Exception as e:
         return [False, e]
     
+# 计算请求数据量
 def hum_convert(value: int):
     units = ["B", "KiB", "MiB", "GiB", "TiB", "PiB"]
     size = 1024.0

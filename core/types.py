@@ -34,6 +34,7 @@ class Cluster:
     
     def json(self):
         return {"id": self.id, "secret": self.secret, "trust": self.trust, "bandwidth": self.bandwidth, "trust": self.trust, "host": self.host, "port": self.port}
+
 class Avro:
     def __init__(self, initial_bytes: bytes = b"", encoding: str = "utf-8") -> None:
         self.io = io.BytesIO(initial_bytes)
@@ -150,3 +151,12 @@ class FileObject:
         self.hash = utils.hash_file(filepath)
         self.size = os.path.getsize(filepath)
         self.mtime = int(os.path.getmtime(filepath)*1000)
+    
+    def to_string(self) -> str:
+        return f"<FileObject path={self.path} hash={self.hash} size={self.size} mtime={self.mtime}>"
+    
+    def __str__(self) -> str:
+        return self.to_string()
+    
+    def __repr__(self) -> str:
+        return self.to_string()

@@ -1,5 +1,6 @@
 import os
 import re
+import json
 import hmac
 import time
 import hashlib
@@ -43,7 +44,7 @@ async def fetch_cluster_list(response: Response):
 
 # 执行命令（很容易爆炸！！！）
 @app.get("/iodine/delete")
-async def fetch_cmd(response: Response, ):
+async def fetch_cmd(response: Response):
     return await database.query_cluster_data("114514")
     
 # 下发 challenge（有效时间: 5 分钟）
@@ -60,7 +61,17 @@ async def fetch_challenge(response: Response, clusterId: str | None = ""):
 
 # 下发令牌（有效日期: 1 天）
 @app.post("/openbmclapi-agent/token")
-async def fetch_token(request: Request, resoponse: Response, clusterId: str = Form(...), challenge: str = Form(...), signature: str = Form(...)):
+async def fetch_token(request: Request, resoponse: Response):
+    try:
+        data = await request.json()
+        clusterId = data.get("clusterId")
+        challenge = data.get("challenge")
+        signature = data.get("signature")
+    except json.decoder.JSONDecodeError:
+        data = await request.form()
+        clusterId = data.get("clusterId")
+        challenge = data.get("challenge")
+        signature = data.get("signature")
     cluster = Cluster(clusterId)
     cluster_is_exist = await cluster.initialize()
     h = hmac.new(cluster.secret.encode('utf-8'), digestmod=hashlib.sha256)
@@ -69,9 +80,9 @@ async def fetch_token(request: Request, resoponse: Response, clusterId: str = Fo
         if str(h.hexdigest()) == signature:
             return {"token": utils.encode_jwt({'cluster_id': clusterId, 'cluster_secret': cluster.secret}), "ttl": 1000 * 60 * 60 * 24}
         else:
-            return PlainTextResponse("Unauthorized", 401)
+            return PlainTextResponse("没有授权", 401)
     else:
-        return PlainTextResponse("Unauthorized", 401)
+        return PlainTextResponse("没有授权", 401)
     
 # 建议同步参数
 @app.get("/openbmclapi/configuration")
@@ -129,18 +140,19 @@ async def on_disconnect(sid, *args):
     if cluster_is_exist:
         try:
             enable_cluster_list.remove(cluster.json())
-            logger.warning(f"{sid} 断连，已将其从在线列表中移除")
+            logger.warning(f"{sid} 断开连接，已将其从在线列表中移除")
         except ValueError:
-            logger.info(f"{sid} 断连，但并未在在线列表中，不进行操作")
+            logger.info(f"{sid} 断开连接，但并未在在线列表中，不进行操作")
 
 # 节点启动时
 @sio.on('enable')
 async def on_cluster_enable(sid, data, *args):
-    logger.info(f"{sid} 申请启用集群")
+    logger.info(f"{sid} 申请启用")
     session = await sio.get_session(sid)
     cluster = Cluster(str(session['cluster_id']))
     cluster_is_exist = await cluster.initialize()
-    await cluster.edit(host = data["host"], port = data["port"], version = data["version"], runtime = data["flavor"]["runtime"])
+    host = data.get("host", session.get("ip"))
+    await cluster.edit(host = host, port = data["port"], version = data["version"], runtime = data["flavor"]["runtime"])
     time.sleep(1)
     # bandwidth = await utils.measure_cluster(20, cluster.json())
     bandwidth = [True, 1000]
@@ -149,7 +161,7 @@ async def on_cluster_enable(sid, data, *args):
         logger.info(f"最后测速结果: {bandwidth[1]}")
         return [None, True]
     elif bandwidth[0] and bandwidth[1] < 10:
-        return [{"message": f"警告: 测量带宽小于 10Mbps，请重试尝试上线（测量得{bandwidth[1]}）"}]
+        return [{"message": f"警告: 测量带宽小于 10Mbps，（测量得{bandwidth[1]}），请重试尝试上线"}]
     else:
         return [{"message": f"错误: {bandwidth[1]}"}]
 
@@ -185,7 +197,7 @@ def init():
     app.mount('/', socket)
     try:
         scheduler.start()
-        uvicorn.run(app, host=settings.HOST, port=settings.PORT, access_log=False)
+        uvicorn.run(app, host=settings.HOST, port=settings.PORT)#, access_log=False)
     except KeyboardInterrupt:
         scheduler.shutdown()
         logger.info('主控已经成功关闭。')
@@ -228,4 +240,5 @@ def init():
 #             别人笑我忒疯癫，我笑自己命太贱；
 #             不见满街漂亮妹，哪个归得程序员？
 #             君子出生在墙内，并非君子之错也.
+#
 #                        来自 ZeroWolf233  2024.7.30 10:51
