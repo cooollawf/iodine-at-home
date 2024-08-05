@@ -1,96 +1,65 @@
-import pandas as pd
-import pyarrow as pa
 from pathlib import Path
-import pyarrow.feather as feather
-def create_cluster_list():
-    data = pd.DataFrame({
-        'CLUSTER_NAME': [],
-        'CLUSTER_ID': [],
-        'CLUSTER_SECRET': [],
-        'CLUSTER_BANDWIDTH': [],
-        'CLUSTER_TRUST':[],
-        'CLUSTER_ISBANNED':[],
-        'CLUSTER_BANREASON':[],
-        'CLUSTER_HOST':[],
-        'CLUSTER_PORT':[],
-        'CLUSTER_VERSION':[],
-        'CLUSTER_RUNTIME':[],
-    })
-    table = pa.Table.from_pandas(data)
-    feather.write_feather(table, Path('./data/CLUSTER_LIST.feather'))
+import core.datafile as datafile
 
-def new_cluster(name: str, id: str, secret: str, bandwidth: int, trust: int = 0, isBanned: int = 0, ban_reason: str = '', host: str = '', port: int = 80, version: str = '', runtime: str = ''):
-    existing_data = pd.read_feather(Path('./data/CLUSTER_LIST.feather'))
-    data = pd.DataFrame({
-        'CLUSTER_NAME': [name],
-        'CLUSTER_ID': [id],
-        'CLUSTER_SECRET': [secret],
-        'CLUSTER_BANDWIDTH': [bandwidth],
-        'CLUSTER_TRUST':[trust],
-        'CLUSTER_ISBANNED':[isBanned],
-        'CLUSTER_BANREASON':[ban_reason],
-        'CLUSTER_HOST':[host],
-        'CLUSTER_PORT':[port],
-        'CLUSTER_VERSION':[version],
-        'CLUSTER_RUNTIME':[runtime],
-    })
-    data_appended = pd.concat([existing_data, data], ignore_index=True)
-    feather.write_feather(data_appended, Path('./data/CLUSTER_LIST.feather'))
+async def new_cluster(name: str, id: str, secret: str, bandwidth: int, trust: int = 0, isBanned: bool = False, banreason: str = '', host: str = '', port: int = 80, version: str = '', runtime: str = ''):
+    data = await datafile.read_json_from_file("CLUSTER_LIST.json")
+    data[id] = {
+        'CLUSTER_NAME': name,
+        'CLUSTER_ID': id,
+        'CLUSTER_SECRET': secret,
+        'CLUSTER_BANDWIDTH': bandwidth,
+        'CLUSTER_TRUST': trust,
+        'CLUSTER_ISBANNED': isBanned,
+        'CLUSTER_BANREASON': banreason,
+        'CLUSTER_HOST': host,
+        'CLUSTER_PORT': port,
+        'CLUSTER_VERSION': version,
+        'CLUSTER_RUNTIME': runtime
+    }
+    await datafile.write_json_to_file("CLUSTER_LIST.json", data)
+    return True
 
-def remove_cluster(id: str):
-    try:
-        existing_data = pd.read_feather(Path('./data/CLUSTER_LIST.feather'))
-        data_deleted = existing_data.drop(existing_data[existing_data['CLUSTER_ID'] == id].index)
-        feather.write_feather(data_deleted, Path('./data/CLUSTER_LIST.feather'))
-        return 'OK'
-    except KeyError:
-        return None
-
-def query_cluster_data(id: str):
-    existing_data = pd.read_feather(Path('./data/CLUSTER_LIST.feather'))
-    result = existing_data[existing_data['CLUSTER_ID'] == id]
-    return result
-
-def edit_cluster(id: str, name: str = None, secret: str = None, bandwidth: int = None, trust: int = None, isBanned: int = None, ban_reason: str = None, host: str = None, port: int = None, version: str = None, runtime: str = None):
-    existing_data = pd.read_feather(Path('./data/CLUSTER_LIST.feather'))
-    
-    # 查找需要更新的行
-    row_to_update = existing_data.loc[existing_data['CLUSTER_ID'] == id]
-
-    if not row_to_update.empty:
-        # 创建一个字典来存储更新的字段
-        updates = {}
-        if name is not None:
-            updates['CLUSTER_NAME'] = name
-        if secret is not None:
-            updates['CLUSTER_SECRET'] = secret
-        if bandwidth is not None:
-            updates['CLUSTER_BANDWIDTH'] = bandwidth
-        if trust is not None:
-            updates['CLUSTER_TRUST'] = trust
-        if isBanned is not None:
-            updates['CLUSTER_ISBANNED'] = isBanned
-        if ban_reason is not None:
-            updates['CLUSTER_BANREASON'] = ban_reason
-        if host is not None:
-            updates['CLUSTER_HOST'] = host
-        if port is not None:
-            updates['CLUSTER_PORT'] = port
-        if version is not None:
-            updates['CLUSTER_VERSION'] = version
-        if runtime is not None:
-            updates['CLUSTER_RUNTIME'] = runtime
-
-        # 如果有更新的字段，则更新数据
-        if updates:
-            existing_data.update(pd.DataFrame(updates, index=row_to_update.index))
-
-        # 将更新后的 DataFrame 写回文件
-        feather.write_feather(existing_data, Path('./data/CLUSTER_LIST.feather'))
+async def delete_cluster(id: str):
+    data = await datafile.read_json_from_file("CLUSTER_LIST.json")
+    if id in data:
+        del data[id]
+        await datafile.write_json_to_file("CLUSTER_LIST.json", data)
         return True
     else:
         return False
-    
-def feather_to_html():
-    existing_data = pd.read_feather(Path('./data/CLUSTER_LIST.feather'))
-    return existing_data.to_html()
+
+async def query_cluster_data(id: str):
+    data = await datafile.read_json_from_file("CLUSTER_LIST.json")
+    return data.get(id, False)
+
+async def edit_cluster(id: str, name: str = None, secret: str = None, bandwidth: int = None, trust: int = None, isBanned: bool = None, ban_reason: str = None, host: str = None, port: int = None, version: str = None, runtime: str = None):
+    data = await datafile.read_json_from_file("CLUSTER_LIST.json")
+
+    if id in data:
+        # 更新字段仅在提供时进行
+        # 这段好屎山啊
+        if name is not None:
+            data[id]['CLUSTER_NAME'] = name
+        if secret is not None:
+            data[id]['CLUSTER_SECRET'] = secret
+        if bandwidth is not None:
+            data[id]['CLUSTER_BANDWIDTH'] = bandwidth
+        if trust is not None:
+            data[id]['CLUSTER_TRUST'] = trust
+        if isBanned is not None:
+            data[id]['CLUSTER_ISBANNED'] = isBanned
+        if ban_reason is not None:
+            data[id]['CLUSTER_BANREASON'] = ban_reason
+        if host is not None:
+            data[id]['CLUSTER_HOST'] = host
+        if port is not None:
+            data[id]['CLUSTER_PORT'] = port
+        if version is not None:
+            data[id]['CLUSTER_VERSION'] = version
+        if runtime is not None:
+            data[id]['CLUSTER_RUNTIME'] = runtime
+
+        await datafile.write_json_to_file("CLUSTER_LIST.json", data)
+        return True
+    else:
+        return False

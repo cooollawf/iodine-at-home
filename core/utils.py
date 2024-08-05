@@ -16,12 +16,6 @@ from string import Template
 import core.settings as settings
 from core.types import Cluster, FileObject, Avro
 
-logging = logger
-logging.remove()
-logging.add(sys.stdout, format="<green>{level}</green>:     {message}", level="INFO")
-logging.add(sys.stdout, format="<red>{level}</red>:     {message}", level="ERROR")
-logging.add(sys.stdout, format="<yellow>{level}</yellow>:     {message}", level="WARNING")
-
 all_figures = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
 all_small_letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']
 
@@ -41,7 +35,7 @@ def fi(template_str, variables):
 USERAGENT = fi(str(settings.settings.get('USERAGENT', 'iodine-ctrl')), {"version": settings.VERSION})
 
 # 读缓存
-def read_from_cache(filename: str):
+def read_filelist_from_cache(filename: str):
     cache_file = Path(f"./data/{filename}")
     with open(cache_file, "rb") as f:
         filelist_content = f.read()
@@ -49,7 +43,7 @@ def read_from_cache(filename: str):
     return filelist
 
 # 写缓存
-def write_to_cache(filename: str, filelist):
+def write_filelist_to_cache(filename: str, filelist):
     cache_file = Path(f"./data/{filename}")
     with open(cache_file, 'wb') as f:
         f.write(filelist)
@@ -112,7 +106,7 @@ def scan_files(directory_path: Path):
 def save_calculate_filelist():
     files_list = scan_files('./files/')
     avro = Avro()
-    avro.writeVarInt(len(files_list))
+    avro.writeVarInt(len(files_list)) # 写入文件数量
     # 挨个写入数据
     for file in files_list:
         avro.writeString(file.path)
@@ -121,7 +115,8 @@ def save_calculate_filelist():
         avro.writeVarInt(file.mtime)
     avro.write(b'\x00')
     result = pyzstd.compress(avro.io.getvalue())
-    write_to_cache("filelist.avro", result)
+    avro.io.close()
+    write_filelist_to_cache("filelist.avro", result)
     logger.info("文件列表计算成功，已保存至本地。")
     return result
 
