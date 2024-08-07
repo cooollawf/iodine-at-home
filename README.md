@@ -54,6 +54,7 @@ PORT = 8080
 USERAGENT = 'iodine-ctrl/$version'
 
 # 机密配置，请勿外传！！！
+TOKEN = '123456'
 JWT_SECRET = '114514'
 ```
 

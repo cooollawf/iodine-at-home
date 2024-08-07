@@ -1,6 +1,7 @@
 import io
 import os
 import core.utils as utils
+from pathlib import Path
 from typing import Optional
 import core.database as database
 
@@ -147,10 +148,10 @@ class Avro:
 
 class FileObject:
     def __init__(self, filepath: str):
-        self.path = filepath.lstrip(".")
-        self.hash = utils.hash_file(filepath)
-        self.size = os.path.getsize(filepath)
-        self.mtime = int(os.path.getmtime(filepath)*1000)
+        self.path = filepath
+        self.hash = utils.hash_file(self.path)
+        self.size = os.path.getsize(self.path)
+        self.mtime = int(os.path.getmtime(self.path) * 1000)
     
     def to_string(self) -> str:
         return f"<FileObject path={self.path} hash={self.hash} size={self.size} mtime={self.mtime}>"

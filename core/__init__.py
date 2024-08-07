@@ -4,6 +4,7 @@ import json
 import hmac
 import time
 import hashlib
+import asyncio
 from pathlib import Path
 from random import choice
 from datetime import datetime, timezone
@@ -19,33 +20,52 @@ import core.database as database
 import core.settings as settings
 from core.logger import logger
 from core.types import Cluster, FileObject
+from core.upstream import Upstream
+import core.const
 
 from starlette.routing import Mount
 from starlette.applications import Starlette
 from socketio.asgi import ASGIApp
 from socketio.async_server import AsyncServer
 
-from apscheduler.schedulers.background import BackgroundScheduler, BaseScheduler
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 # 初始化变量
 app = FastAPI()
 sio = AsyncServer(async_mode='asgi', cors_allowed_origins='*')
 socket = ASGIApp(sio)
 enable_cluster_list = []
+upstream = Upstream("https://github.com/Mxmilu666/bangbang93HUB", "./files")
 
 # 定时执行
 scheduler = BackgroundScheduler()
 scheduler.add_job(utils.save_calculate_filelist, 'interval', minutes=10, id='refresh_filelist')
 
-# 节点列表的 HTML 界面
+# 以 JSON 格式返回节点列表
 @app.get("/iodine/cluster-list")
-async def fetch_cluster_list(response: Response):
+async def fetch_cluster_list(response: Response, token: str | None):
+    if token != settings.TOKEN:
+        return PlainTextResponse("没有权限", 401)
     return await datafile.read_json_from_file("CLUSTER_LIST.json")
 
 # 执行命令（很容易爆炸！！！）
 @app.get("/iodine/delete")
-async def fetch_cmd(response: Response):
+async def fetch_cmd(response: Response, token: str | None):
+    if token != settings.TOKEN:
+        return PlainTextResponse("没有权限", 401)
     return await database.query_cluster_data("114514")
+
+@app.get("/iodine/update")
+async def update_files(token : str) -> Response:
+    def update():
+        upstream.fetch()
+        utils.save_calculate_filelist()
+    if scheduler.get_job(job_id='update_files') is not None:
+        return PlainTextResponse(core.const.conflict_response, 409)
+    job = scheduler.add_job(update, id='update_files')
+    return PlainTextResponse(status_code=204)
+    
     
 # 下发 challenge（有效时间: 5 分钟）
 @app.get("/openbmclapi-agent/challenge")
@@ -64,14 +84,11 @@ async def fetch_challenge(response: Response, clusterId: str | None = ""):
 async def fetch_token(request: Request, resoponse: Response):
     try:
         data = await request.json()
-        clusterId = data.get("clusterId")
-        challenge = data.get("challenge")
-        signature = data.get("signature")
     except json.decoder.JSONDecodeError:
         data = await request.form()
-        clusterId = data.get("clusterId")
-        challenge = data.get("challenge")
-        signature = data.get("signature")
+    clusterId = data.get("clusterId")
+    challenge = data.get("challenge")
+    signature = data.get("signature")
     cluster = Cluster(clusterId)
     cluster_is_exist = await cluster.initialize()
     h = hmac.new(cluster.secret.encode('utf-8'), digestmod=hashlib.sha256)
@@ -98,7 +115,7 @@ async def fetch_filesList():
 
 # 普通下载（从主控或节点拉取文件）
 @app.get("/files/{path:path}")
-def download_file(path: str):
+async def download_file(path: str):
     if Path(f"./files/{path}").is_file() == False:
         return PlainTextResponse("Not Found", 404)
     if Path(f"./files/{path}").is_dir == True:
@@ -116,11 +133,26 @@ def download_file(path: str):
 def download_file(hash: str):
     return FileResponse(utils.hash_file(Path(f'./files/{hash}')))
 
+# 举报
+@app.post("/openbmclapi/report")
+async def fetch_report(request: Request):
+    try:
+        data = await request.json()
+    except json.decoder.JSONDecodeError:
+        data = await request.form()
+    urls = data.get("urls")
+    error = data.get("error")
+    logger.warning(f"收到举报, 重定向记录: {urls}，错误信息: {error}")
+    return Response(status_code=200)
+
 # 节点端连接时
 @sio.on('connect')
 async def on_connect(sid, *args):
     token_pattern = r"'token': '(.*?)'"
     token = re.search(token_pattern, str(args)).group(1)
+    if token.isspace():
+        sio.disconnect(sid)
+        logger.info(f"客户端 {sid} 连接失败（原因: 未提交 token 令牌）")
     cluster = Cluster(utils.decode_jwt(token)["cluster_id"])
     cluster_is_exist = await cluster.initialize()
     if cluster_is_exist and cluster.secret == utils.decode_jwt(token)['cluster_secret']:
@@ -137,31 +169,32 @@ async def on_disconnect(sid, *args):
     session = await sio.get_session(sid)
     cluster = Cluster(str(session['cluster_id']))
     cluster_is_exist = await cluster.initialize()
-    if cluster_is_exist:
-        try:
-            enable_cluster_list.remove(cluster.json())
-            logger.warning(f"{sid} 断开连接，已将其从在线列表中移除")
-        except ValueError:
-            logger.info(f"{sid} 断开连接，但并未在在线列表中，不进行操作")
+    if cluster_is_exist and cluster.json() in enable_cluster_list:
+        enable_cluster_list.remove(cluster.json())
+        logger.info(f"{sid} 断开连接，已从在线列表中删除")
 
 # 节点启动时
 @sio.on('enable')
 async def on_cluster_enable(sid, data, *args):
-    logger.info(f"{sid} 申请启用")
     session = await sio.get_session(sid)
     cluster = Cluster(str(session['cluster_id']))
     cluster_is_exist = await cluster.initialize()
+    if cluster_is_exist == False:
+        return [{"message": f"错误: 节点似乎并不存在，请检查配置文件"}]
+    logger.info(f"{sid} 申请启用（CLUSTER_ID: {session['cluster_id']}）")
     host = data.get("host", session.get("ip"))
     await cluster.edit(host = host, port = data["port"], version = data["version"], runtime = data["flavor"]["runtime"])
     time.sleep(1)
-    # bandwidth = await utils.measure_cluster(20, cluster.json())
-    bandwidth = [True, 1000]
+    bandwidth = await utils.measure_cluster(10, cluster.json())
+    #bandwidth = [True, 1000]
     if bandwidth[0] and bandwidth[1] >= 10:
         enable_cluster_list.append(cluster.json())
-        logger.info(f"最后测速结果: {bandwidth[1]}")
+        logger.info(f"{sid} 上线成功（测量带宽: {bandwidth[1]}）")
+        # utils.choose_file()
         return [None, True]
     elif bandwidth[0] and bandwidth[1] < 10:
-        return [{"message": f"警告: 测量带宽小于 10Mbps，（测量得{bandwidth[1]}），请重试尝试上线"}]
+        logger
+        return [{"message": f"错误: 测量带宽小于 10Mbps，（测量得{bandwidth[1]}），请重试尝试上线"}]
     else:
         return [{"message": f"错误: {bandwidth[1]}"}]
 
@@ -194,6 +227,7 @@ def init():
     if not os.path.exists(Path('./files/')):
         os.makedirs(Path('./files/'))
     logger.info(f'加载中...')
+    utils.save_calculate_filelist()
     app.mount('/', socket)
     try:
         scheduler.start()

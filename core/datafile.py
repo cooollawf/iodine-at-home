@@ -42,3 +42,9 @@ async def write_filelist_to_cache(filename: str, filelist):
     async with filelist_write_lock:
         async with aiofiles.open(cache_file, 'wb') as f:
             f.write(filelist)
+
+## 写入 FILELIST - 无异步版
+def write_filelist_to_cache_nosaync(filename: str, filelist):
+    cache_file = Path(f"./data/{filename}")
+    with open(cache_file, 'wb') as f:
+        f.write(filelist)

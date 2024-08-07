@@ -6,18 +6,20 @@ import json
 import httpx
 import base64
 import random
+import jwt.algorithms
 import pyzstd
 import hashlib
 import aiofiles
 from pathlib import Path
 from loguru import logger
 from string import Template
+from random import choice, choices
 
+import core.const as const
 import core.settings as settings
+import core.datafile as datafile
 from core.types import Cluster, FileObject, Avro
-
-all_figures = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
-all_small_letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']
+from core.upstream import Upstream
 
 def fi(template_str, variables):  
     """  
@@ -34,20 +36,6 @@ def fi(template_str, variables):
 
 USERAGENT = fi(str(settings.settings.get('USERAGENT', 'iodine-ctrl')), {"version": settings.VERSION})
 
-# 读缓存
-def read_filelist_from_cache(filename: str):
-    cache_file = Path(f"./data/{filename}")
-    with open(cache_file, "rb") as f:
-        filelist_content = f.read()
-        filelist = filelist_content
-    return filelist
-
-# 写缓存
-def write_filelist_to_cache(filename: str, filelist):
-    cache_file = Path(f"./data/{filename}")
-    with open(cache_file, 'wb') as f:
-        f.write(filelist)
-
 # JWT 加密
 def encode_jwt(data, secret: str | None = settings.JWT_SECRET):
     result = jwt.encode(data, secret, algorithm='HS256')
@@ -60,7 +48,7 @@ def decode_jwt(data, secret: str | None = settings.JWT_SECRET):
 
 # 随机生成字符
 def generate_random_character():
-    return random.choice(all_figures + all_small_letters)
+    return random.choice(const.all_figures + const.all_small_letters)
 
 # 随机生成字符串
 def generate_random_token(length):
@@ -70,7 +58,7 @@ def generate_random_token(length):
     return result
 
 # 文件 SHA-1 值
-def hash_file(filename, algorithm: str | None = 'sha1'):
+def hash_file(filename: Path, algorithm: str | None = 'sha1'):
     """此函数返回传入文件的 SHA-1 或其他哈希值（取决于指定的算法）"""
     # 根据算法创建哈希实例
     hash_algorithm = hashlib.new(algorithm)
@@ -84,39 +72,21 @@ def hash_file(filename, algorithm: str | None = 'sha1'):
     # 返回哈希值的十六进制形式
     return hash_algorithm.hexdigest()
 
-# 扫文件
-def scan_files(directory_path: Path):
-    """* 递归扫描目录及其子目录，返回该目录下所有文件的路径集合"""
-    files_list = []
-    files_list.clear()
-
-    for dirpath, dirnames, filenames in os.walk(directory_path):
-
-        unix_style_dirpath = dirpath.replace('\\', '/')
-        
-        for filename in filenames:
-            if filename.startswith('.'):
-                continue
-            filepath = f"{unix_style_dirpath}/{filename}"
-            files_list.append(FileObject(filepath))
-
-    return files_list
-
 # 保存经计算、压缩过的 Avro 格式的文件列表
 def save_calculate_filelist():
-    files_list = scan_files('./files/')
+    files_list = Upstream.iterate_directory("./files/", "./files/")
     avro = Avro()
     avro.writeVarInt(len(files_list)) # 写入文件数量
     # 挨个写入数据
     for file in files_list:
-        avro.writeString(file.path)
+        avro.writeString(f"/files/{file.path}")
         avro.writeString(file.hash)
         avro.writeVarInt(file.size)
         avro.writeVarInt(file.mtime)
     avro.write(b'\x00')
     result = pyzstd.compress(avro.io.getvalue())
     avro.io.close()
-    write_filelist_to_cache("filelist.avro", result)
+    datafile.write_filelist_to_cache_nosaync("filelist.avro", result)
     logger.info("文件列表计算成功，已保存至本地。")
     return result
 
@@ -145,7 +115,7 @@ def get_sign(path, secret):
         logger.error(e)
         return None
     
-    timestamp = int(time.time() * 1000 + 5 * 60)
+    timestamp = int((time.time() + 5 * 60) * 1000)
     e = base36encode(timestamp)
     sign_data = (secret + path + e).encode('utf-8')
     sha1.update(sign_data)
@@ -163,11 +133,12 @@ async def measure_cluster(size: int, cluster):
     path = f"/measure/{str(size)}"
     sign = get_sign(path, cluster["secret"])
     url = get_url(cluster["host"], cluster["port"], path, sign)
-    logger.info(url)
     try:
         start_time = time.time()
+        user_agent = choice(const.user_agent_list)
         async with httpx.AsyncClient() as client:
-            await client.get(url, headers={"User-Agent": USERAGENT})
+            response = await client.get(url, headers={"User-Agent": user_agent})
+        
         end_time = time.time()
         elapsed_time = end_time - start_time
         # 计算测速时间
@@ -176,11 +147,49 @@ async def measure_cluster(size: int, cluster):
     except Exception as e:
         return [False, e]
     
+# 算哈希
+def compute_hash(file_stream):
+    """计算文件流的 SHA-256 哈希值"""
+    hasher = hashlib.sha256()
+    for chunk in iter(lambda: file_stream.read(4096), b""):
+        hasher.update(chunk)
+    return hasher.hexdigest()
+
+# 节点enable时进行文件校验
+async def check_cluster(url, file_path):
+    """检查URL返回的内容与文件内容的哈希值是否匹配"""
+    is_valid = False
+    
+    # 发送请求并获取响应
+    
+    async with httpx.AsyncClient() as client:
+        response = await client.get(url, headers={"User-Agent": choice(const.user_agent_list)})
+    
+    # 计算响应内容的哈希值
+    response_hash = compute_hash(response.raw)
+    
+    # 读取文件并计算文件的哈希值
+    with aiofiles.open(file_path, 'rb') as file:
+        file_hash = compute_hash(file)
+    
+    # 比较哈希值
+    if response_hash == file_hash:
+        is_valid = True
+    
+    response.close()
+    return is_valid
+
+# 随机挑选幸运儿(文件)
+def choose_file(files : list[FileObject], num: int) -> list[FileObject]:
+    return random.sample(files, num)
+
+# print(choose_file(5))
 # 计算请求数据量
 def hum_convert(value: int):
     units = ["B", "KiB", "MiB", "GiB", "TiB", "PiB"]
-    size = 1024.0
-    for i in range(len(units)):
-        if (value / size) < 1:
-            return "%.2f%s" % (value, units[i])
-        value = value / size
+    size = value
+    for unit in units:
+        if (size / 1024) < 1:
+            return "%.2f%s" % (size, unit)
+        size = size / 1024
+    return f"{value:.2f} B"

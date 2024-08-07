@@ -1,11 +1,12 @@
 import os
 import hashlib
+from pathlib import Path
 from core.types import FileObject
 
 # 从 GitHub 仓库获取最新版本，并下载到 files 目录下
 class Upstream:
     # 接收 url、directory 等参数
-    def __init__(self, url, directory):
+    def __init__(self, url, directory: Path):
         self.url = url
         self.directory = directory
 
@@ -43,12 +44,12 @@ class Upstream:
                 file_list.append(file)
         return file_list
 
-def main():
-    upstream = Upstream('https://github.com/Mxmilu666/bangbang93HUB', 'files')
-    upstream.fetch()
-    files = upstream.get_file_list()
-    for file in files:
-        print(file)
+# def main():
+#     upstream = Upstream('https://github.com/Mxmilu666/bangbang93HUB', 'files')
+#     upstream.fetch()
+#     files = upstream.get_file_list()
+#     for file in files:
+#         print(file)
 
-if __name__ == '__main__':
-    main()
+# if __name__ == '__main__':
+#     main()
