@@ -4,7 +4,6 @@ import json
 import hmac
 import time
 import hashlib
-import asyncio
 from pathlib import Path
 from random import choice
 from datetime import datetime, timezone
@@ -29,7 +28,6 @@ from socketio.asgi import ASGIApp
 from socketio.async_server import AsyncServer
 
 from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 # 初始化变量
 app = FastAPI()
@@ -231,7 +229,9 @@ def init():
         os.makedirs(Path('./files/'))
     logger.info(f'加载中...')
     for i in settings.GIT_REPOSITORY_LIST:
-        Upstream(i, f"./files/{utils.extract_repo_name(i)}").fetch()
+        name = utils.extract_repo_name(i)
+        Upstream(i, f"./files/{name}").fetch()
+        scheduler.add_job(Upstream(i, f"./files/{name}").fetch(), 'interval', minutes=10, id=f'fetch_{name}')
     utils.save_calculate_filelist()
     app.mount('/', socket)
     try:

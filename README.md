@@ -1,10 +1,3 @@
-# Iodine at Home
-
-
-
-> [!WARNING]
-> 本项目并未完成，请勿作为生产环境使用。
-
 <div align="center">
     <img src="https://socialify.git.ci/Zero-Octagon/iodine-at-home/image?description=1&language=1&name=1&owner=1&theme=Auto" alt="iodine-at-home" width="640" height="320" />
 
