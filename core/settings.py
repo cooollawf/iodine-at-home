@@ -3,7 +3,7 @@ import sys
 import yaml
 import httpx
 from pathlib import Path
-from loguru import logger
+from core.logger import logger
 from dotenv import load_dotenv, dotenv_values
 
 versionPath = Path('./VERSION')
@@ -29,3 +29,5 @@ HOST = str(settings.get('HOST', '0.0.0.0'))
 PORT = int(settings.get('PORT', 8080))
 JWT_SECRET = str(settings.get('JWT_SECRET', '114514'))
 TOKEN = str(settings.get('TOKEN', '123456'))
+GIT_REPOSITORY = settings.get('GIT_REPOSITORY_LIST', "https://github.com/Mxmilu666/bangbang93HUB")
+GIT_REPOSITORY_LIST = GIT_REPOSITORY.split(",")

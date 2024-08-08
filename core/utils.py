@@ -192,4 +192,11 @@ def hum_convert(value: int):
         if (size / 1024) < 1:
             return "%.2f%s" % (size, unit)
         size = size / 1024
-    return f"{value:.2f} B"
+    return f"{value:.2f}"
+
+def extract_repo_name(url: str) -> str:
+    # 移除 URL 结尾的 .git
+    repo_name_with_git = url.split('/')[-1]
+    repo_name = repo_name_with_git.rsplit('.', 1)[0]
+
+    return repo_name

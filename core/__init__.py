@@ -230,7 +230,8 @@ def init():
     if not os.path.exists(Path('./files/')):
         os.makedirs(Path('./files/'))
     logger.info(f'加载中...')
-    Upstream("https://gh.con.sh/https://github.com/Mxmilu666/bangbang93HUB", "./files/bangbang93HUB").fetch()
+    for i in settings.GIT_REPOSITORY_LIST:
+        Upstream(i, f"./files/{utils.extract_repo_name(i)}").fetch()
     utils.save_calculate_filelist()
     app.mount('/', socket)
     try:

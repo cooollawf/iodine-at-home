@@ -56,6 +56,9 @@ USERAGENT = 'iodine-ctrl/$version'
 # 机密配置，请勿外传！！！
 TOKEN = '123456'
 JWT_SECRET = '114514'
+
+# 文件配置
+GIT_REPOSITORY_LIST = ""
 ```
 
 ## 📖 许可证

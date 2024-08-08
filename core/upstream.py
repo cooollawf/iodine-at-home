@@ -2,6 +2,7 @@ import os
 import hashlib
 from pathlib import Path
 from core.types import FileObject
+from core.logger import logger
 
 # 从 GitHub 仓库获取最新版本，并下载到 files 目录下
 class Upstream:
@@ -12,21 +13,23 @@ class Upstream:
 
     # 下载文件
     def fetch(self) -> None:
+        logger.info(f"正在同步 {self.url} 仓库内文件")
         # 检查目录是否存在，不存在则创建
         try:
             if not os.path.exists(self.directory):
                 os.makedirs(self.directory)
                 # 下载文件
                 result = os.system(f"git clone {self.url} {self.directory}")
-                return result
             else:
                 current_dir = os.getcwd()
                 os.chdir(self.directory)
                 result = os.system("git pull")
                 os.chdir(current_dir)
-                return result
+            logger.success(f"仓库 {self.url} 文件同步完成")
+            return result
         except Exception as e:
             ... # 记录异常信息
+            logger.error(e)
             return -1
         
     def get_file_list(self) -> list[FileObject]:
