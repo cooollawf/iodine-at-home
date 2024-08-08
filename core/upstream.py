@@ -20,7 +20,10 @@ class Upstream:
                 result = os.system(f"git clone {self.url} {self.directory}")
                 return result
             else:
-                result = os.system(f"cd {self.directory} && git pull")
+                current_dir = os.getcwd()
+                os.chdir(self.directory)
+                result = os.system("git pull")
+                os.chdir(current_dir)
                 return result
         except Exception as e:
             ... # 记录异常信息
@@ -33,6 +36,9 @@ class Upstream:
     def iterate_directory(root : str, subroot : str) -> list[FileObject]:
         file_list = []
         for current, directories, files in os.walk(subroot):
+            
+            directories[:] = [d for d in directories if not d.startswith('.')]
+
             for directory in directories:
                 file_list += Upstream.iterate_directory(root, os.path.join(current, directory))
             for file in files:

@@ -14,14 +14,14 @@ from fastapi import FastAPI, Header, Response, status, Request, Form
 from fastapi.responses import PlainTextResponse, RedirectResponse, FileResponse, HTMLResponse
 import uvicorn.config
 
-import core.datafile as datafile
 import core.utils as utils
+from core.logger import logger
+import core.datafile as datafile
 import core.database as database
 import core.settings as settings
-from core.logger import logger
-from core.types import Cluster, FileObject
-from core.upstream import Upstream
 import core.const
+from core.upstream import Upstream
+from core.types import Cluster, FileObject
 
 from starlette.routing import Mount
 from starlette.applications import Starlette
@@ -58,6 +58,8 @@ async def fetch_cmd(response: Response, token: str | None):
 
 @app.get("/iodine/update")
 async def update_files(token : str) -> Response:
+    if token != settings.TOKEN:
+        return PlainTextResponse("没有权限", 401)
     def update():
         upstream.fetch()
         utils.save_calculate_filelist()
@@ -165,13 +167,14 @@ async def on_connect(sid, *args):
 # 当节点端退出连接时
 @sio.on('disconnect')
 async def on_disconnect(sid, *args):
-    logger.info(f"客户端 {sid} 关闭了连接")
     session = await sio.get_session(sid)
     cluster = Cluster(str(session['cluster_id']))
     cluster_is_exist = await cluster.initialize()
     if cluster_is_exist and cluster.json() in enable_cluster_list:
         enable_cluster_list.remove(cluster.json())
-        logger.info(f"{sid} 断开连接，已从在线列表中删除")
+        logger.info(f"{sid} 异常断开连接，已从在线列表中删除")
+    else:
+        logger.info(f"客户端 {sid} 关闭了连接")
 
 # 节点启动时
 @sio.on('enable')
@@ -186,16 +189,16 @@ async def on_cluster_enable(sid, data, *args):
     await cluster.edit(host = host, port = data["port"], version = data["version"], runtime = data["flavor"]["runtime"])
     time.sleep(1)
     bandwidth = await utils.measure_cluster(10, cluster.json())
-    #bandwidth = [True, 1000]
     if bandwidth[0] and bandwidth[1] >= 10:
         enable_cluster_list.append(cluster.json())
         logger.info(f"{sid} 上线成功（测量带宽: {bandwidth[1]}）")
         # utils.choose_file()
         return [None, True]
     elif bandwidth[0] and bandwidth[1] < 10:
-        logger
+        logger.info(f"{sid} 测速未通过（测量带宽: {bandwidth[1]}）")
         return [{"message": f"错误: 测量带宽小于 10Mbps，（测量得{bandwidth[1]}），请重试尝试上线"}]
     else:
+        logger.info(f"{sid} 测速未通过（测量带宽: {bandwidth[1]}）")
         return [{"message": f"错误: {bandwidth[1]}"}]
 
 # 节点保活时
@@ -227,11 +230,12 @@ def init():
     if not os.path.exists(Path('./files/')):
         os.makedirs(Path('./files/'))
     logger.info(f'加载中...')
+    Upstream("https://gh.con.sh/https://github.com/Mxmilu666/bangbang93HUB", "./files/bangbang93HUB").fetch()
     utils.save_calculate_filelist()
     app.mount('/', socket)
     try:
         scheduler.start()
-        uvicorn.run(app, host=settings.HOST, port=settings.PORT)#, access_log=False)
+        uvicorn.run(app, host=settings.HOST, port=settings.PORT, access_log=False)
     except KeyboardInterrupt:
         scheduler.shutdown()
         logger.info('主控已经成功关闭。')

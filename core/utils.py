@@ -79,7 +79,7 @@ def save_calculate_filelist():
     avro.writeVarInt(len(files_list)) # 写入文件数量
     # 挨个写入数据
     for file in files_list:
-        avro.writeString(f"/files/{file.path}")
+        avro.writeString(f"/files{file.path}")
         avro.writeString(file.hash)
         avro.writeVarInt(file.size)
         avro.writeVarInt(file.mtime)

@@ -34,7 +34,7 @@ class Cluster:
         await self.update()
     
     def json(self):
-        return {"id": self.id, "secret": self.secret, "trust": self.trust, "bandwidth": self.bandwidth, "trust": self.trust, "host": self.host, "port": self.port}
+        return {"id": self.id, "secret": self.secret, "trust": self.trust, "bandwidth": self.bandwidth, "host": self.host, "port": self.port}
 
 class Avro:
     def __init__(self, initial_bytes: bytes = b"", encoding: str = "utf-8") -> None:
