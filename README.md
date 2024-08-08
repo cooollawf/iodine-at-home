@@ -28,7 +28,7 @@ _✨ 开源的文件分发主控，并尝试兼容 OpenBMCLAPI 客户端 ✨_
 
 ## 📖 介绍
 
-基于 [FastAPI](https://fastapi.tiangolo.com/zh/) 和 [Socket.IO](https://socket.io/) 的 Python 文件分发主控。
+基于 [FastAPI](https://fastapi.tiangolo.com/) 和 [Socket.IO](https://socket.io/) 的 Python 文件分发主控。
 
 ## 🎉 运行
 
@@ -37,11 +37,11 @@ _✨ 开源的文件分发主控，并尝试兼容 OpenBMCLAPI 客户端 ✨_
 pip install -r requirements.txt
  
 # 运行主程序
-python main.py
+python .\main.py
 ```
 
 ### 测试结果
-本项目并未完成，请勿使用！
+基本完成，似乎能用？
 
 ## ⚙️ 配置
 
@@ -64,7 +64,7 @@ JWT_SECRET = '114514'
 ## 💡 特别鸣谢
 
 [**bangbang93**](https://github.com/bangbang93)
-- [OpenBMCLAPI](https://qm.qq.com/q/2OfvVrAwVG) - 使用其 API 完成本项目与 OpenBMCLAPI 客户端的兼容。
+- [OpenBMCLAPI](https://github.com/bangbang93/openbmclapi) - 使用其 API 完成本项目与 OpenBMCLAPI 客户端的兼容。
 
 [**8Mi_Yile**](https://github.com/8MiYile)
 - 各种逆天言论，使 [bangbang93HUB](https://github.com/Mxmilu666/bangbang93HUB) 能持续更新至今。（使开发更加轻松、开心）
@@ -82,5 +82,5 @@ JWT_SECRET = '114514'
 [**Mxmilu666**](https://github.com/Mxmilu666)
 - [bangbang93HUB](https://github.com/Mxmilu666/bangbang93HUB) - 提供了创建该项目的灵感。
 
-[**群内的各位大佬们**](https://qm.qq.com/q/2OfvVrAwVG)
+[**群内的各位大佬们**](https://qm.qq.com/q/2OfvVrAwVG)(详细名单见贡献者列表)
 - 参加我发出去的 Live Share，让项目更快得以实现。
