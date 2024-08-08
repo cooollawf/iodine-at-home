@@ -231,7 +231,7 @@ def init():
     for i in settings.GIT_REPOSITORY_LIST:
         name = utils.extract_repo_name(i)
         Upstream(i, f"./files/{name}").fetch()
-        scheduler.add_job(Upstream(i, f"./files/{name}").fetch(), 'interval', minutes=10, id=f'fetch_{name}')
+        scheduler.add_job(Upstream(i, f"./files/{name}").fetch, 'interval', minutes=10, id=f'fetch_{name}')
     utils.save_calculate_filelist()
     app.mount('/', socket)
     try:
