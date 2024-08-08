@@ -48,11 +48,11 @@ async def fetch_cluster_list(response: Response, token: str | None):
     return await datafile.read_json_from_file("CLUSTER_LIST.json")
 
 # 执行命令（很容易爆炸！！！）
-@app.get("/iodine/delete")
-async def fetch_cmd(response: Response, token: str | None):
+@app.get("/iodine/new-cluster")
+async def fetch_cmd(response: Response, token: str | None, name: str | None, id: str | None, secret: str | None, bandwidth: str | None):
     if token != settings.TOKEN:
         return PlainTextResponse("没有权限", 401)
-    return await database.query_cluster_data("114514")
+    return await database.new_cluster(name, id, secret, bandwidth)
 
 @app.get("/iodine/update")
 async def update_files(token : str) -> Response:
