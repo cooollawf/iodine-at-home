@@ -72,12 +72,18 @@ def hash_file(filename: Path, algorithm: str | None = 'sha1'):
     # 返回哈希值的十六进制形式
     return hash_algorithm.hexdigest()
 
-# 保存经计算、压缩过的 Avro 格式的文件列表
+# 保存经计算、压缩过的 Avro 格式 和 JSON 格式的文件列表
 def save_calculate_filelist():
     files_list = Upstream.iterate_directory("./files/", "./files/")
+    filelist_json = {}
+    # 挨个写入数据
+    for file in files_list:
+        filelist_json[file.hash] = {
+            "path": f"/files{file.path}", # 文件路径
+        }
+    datafile.write_json_to_file_noasync("filelist.json", filelist_json)
     avro = Avro()
     avro.writeVarInt(len(files_list)) # 写入文件数量
-    # 挨个写入数据
     for file in files_list:
         avro.writeString(f"/files{file.path}")
         avro.writeString(file.hash)

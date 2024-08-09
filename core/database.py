@@ -1,7 +1,7 @@
 from pathlib import Path
 import core.datafile as datafile
 
-async def new_cluster(name: str, id: str, secret: str, bandwidth: int, trust: int = 0, isBanned: bool = False, banreason: str = '', host: str = '', port: int = 80, version: str = '', runtime: str = ''):
+async def create_cluster(name: str, id: str, secret: str, bandwidth: int, trust: int = 0, isBanned: bool = False, banreason: str = '', host: str = '', port: int = 80, version: str = '', runtime: str = ''):
     data = await datafile.read_json_from_file("CLUSTER_LIST.json")
     data[id] = {
         'CLUSTER_NAME': name,

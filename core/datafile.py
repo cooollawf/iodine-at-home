@@ -23,6 +23,12 @@ async def write_json_to_file(filename: str, content):
         async with aiofiles.open(data_file, 'w', encoding="utf-8") as f:
             await f.write(json.dumps(content))
 
+## 写入 JSON - 无异步版
+def write_json_to_file_noasync(filename: str, content):
+    data_file = Path(f"./data/{filename}")
+    with open(data_file, 'w', encoding="utf-8") as f:
+        f.write(json.dumps(content))
+
 # FILELIST 部分
 filelist_read_lock = asyncio.Lock()
 filelist_write_lock = asyncio.Lock()

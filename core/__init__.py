@@ -5,7 +5,7 @@ import hmac
 import time
 import hashlib
 from pathlib import Path
-from random import choice
+from random import choice, choices
 from datetime import datetime, timezone
 
 import uvicorn
@@ -13,12 +13,12 @@ from fastapi import FastAPI, Header, Response, status, Request, Form
 from fastapi.responses import PlainTextResponse, RedirectResponse, FileResponse, HTMLResponse
 import uvicorn.config
 
+import core.const as const
 import core.utils as utils
 from core.logger import logger
 import core.datafile as datafile
 import core.database as database
 import core.settings as settings
-import core.const
 from core.upstream import Upstream
 from core.types import Cluster, FileObject
 
@@ -29,45 +29,52 @@ from socketio.async_server import AsyncServer
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
-# 初始化变量
+## 初始化变量
 app = FastAPI()
 sio = AsyncServer(async_mode='asgi', cors_allowed_origins='*')
 socket = ASGIApp(sio)
 enable_cluster_list = []
-upstream = Upstream("https://github.com/Mxmilu666/bangbang93HUB", "./files")
+enable_cluster_4_list = []
+enable_cluster_6_list = []
 
-# 定时执行
+# IODINE @ HOME
+## 定时执行
 scheduler = BackgroundScheduler()
-scheduler.add_job(utils.save_calculate_filelist, 'interval', minutes=10, id='refresh_filelist')
+scheduler.add_job(utils.save_calculate_filelist, 'interval', minutes=1, id='refresh_filelist')
 
-# 以 JSON 格式返回节点列表
-@app.get("/iodine/cluster-list")
-async def fetch_cluster_list(response: Response, token: str | None):
+## 新建节点
+@app.get("/api/cluster/create")
+async def fetch_create_cluster(response: Response, token: str | None, name: str | None, id: str | None, secret: str | None, bandwidth: str | None):
     if token != settings.TOKEN:
         return PlainTextResponse("没有权限", 401)
-    return await datafile.read_json_from_file("CLUSTER_LIST.json")
+    return await database.create_cluster(name, id, secret, bandwidth)
 
-# 执行命令（很容易爆炸！！！）
-@app.get("/iodine/new-cluster")
-async def fetch_cmd(response: Response, token: str | None, name: str | None, id: str | None, secret: str | None, bandwidth: str | None):
+## 删除节点
+@app.get("/api/cluster/delete")
+async def fetch_delete_cluster(response: Response, token: str | None,  id: str | None):
     if token != settings.TOKEN:
         return PlainTextResponse("没有权限", 401)
-    return await database.new_cluster(name, id, secret, bandwidth)
+    return await database.delete_cluster(id)
 
-@app.get("/iodine/update")
-async def update_files(token : str) -> Response:
-    if token != settings.TOKEN:
-        return PlainTextResponse("没有权限", 401)
-    def update():
-        upstream.fetch()
-        utils.save_calculate_filelist()
-    if scheduler.get_job(job_id='update_files') is not None:
-        return PlainTextResponse(core.const.conflict_response, 409)
-    job = scheduler.add_job(update, id='update_files')
-    return PlainTextResponse(status_code=204)
-    
-    
-# 下发 challenge（有效时间: 5 分钟）
+## 以 JSON 格式返回节点列表
+@app.get("/api/cluster/list")
+async def fetch_cluster_list(response: Response):
+    return await datafile.read_json_from_file("CLUSTER_JSON.json")
+
+## 以 JSON 格式返回主控状态
+@app.get("/api/status")
+async def fetch_status(response: Response):
+    return {
+        "currentNodes": len(enable_cluster_list)
+    }
+
+## 以 纯文本 返回主控版本
+@app.get("/api/version")
+async def fetch_version(response: Response):
+    return PlainTextResponse(settings.VERSION, 200)    
+
+# OpenBMCLAPI 部分
+## 下发 challenge（有效时间: 5 分钟）
 @app.get("/openbmclapi-agent/challenge")
 async def fetch_challenge(response: Response, clusterId: str | None = ""):
     cluster = Cluster(clusterId)
@@ -79,7 +86,7 @@ async def fetch_challenge(response: Response, clusterId: str | None = ""):
     else:
         return PlainTextResponse("节点未找到", 404)
 
-# 下发令牌（有效日期: 1 天）
+## 下发令牌（有效日期: 1 天）
 @app.post("/openbmclapi-agent/token")
 async def fetch_token(request: Request, resoponse: Response):
     try:
@@ -101,19 +108,19 @@ async def fetch_token(request: Request, resoponse: Response):
     else:
         return PlainTextResponse("没有授权", 401)
     
-# 建议同步参数
+## 建议同步参数
 @app.get("/openbmclapi/configuration")
 def fetch_configuration():
     return {"sync": {"source": "center", "concurrency": 100}}
 
-# 文件列表
+## 文件列表
 @app.get("/openbmclapi/files")
 async def fetch_filesList():
     # TODO: 获取文件列表
     filelist = await datafile.read_filelist_from_cache("filelist.avro")
     return HTMLResponse(content=filelist, media_type="application/octet-stream")
 
-# 普通下载（从主控或节点拉取文件）
+## 普通下载（从主控或节点拉取文件）
 @app.get("/files/{path:path}")
 async def download_file(path: str):
     if Path(f"./files/{path}").is_file() == False:
@@ -128,12 +135,17 @@ async def download_file(path: str):
         url = utils.get_url(cluster["host"], cluster["port"], f"/download/{file.hash}", utils.get_sign(file.hash, cluster["secret"])) 
         return RedirectResponse(url, 302)
 
-# 应急同步（从主控拉取文件）
+## 应急同步（从主控拉取文件）
 @app.get("/openbmclapi/download/{hash}")
-def download_file(hash: str):
-    return FileResponse(utils.hash_file(Path(f'./files/{hash}')))
+async def download_file_from_ctrl(hash: str):
+    try:
+        filelist = await datafile.read_json_from_file("filelist.json")
+        path = filelist[hash]["path"]
+        return FileResponse(Path(f".{path}"))
+    except ValueError:
+        return PlainTextResponse("Not Found", 404)
 
-# 举报
+## 举报
 @app.post("/openbmclapi/report")
 async def fetch_report(request: Request):
     try:
@@ -145,7 +157,7 @@ async def fetch_report(request: Request):
     logger.warning(f"收到举报, 重定向记录: {urls}，错误信息: {error}")
     return Response(status_code=200)
 
-# 节点端连接时
+## 节点端连接时
 @sio.on('connect')
 async def on_connect(sid, *args):
     token_pattern = r"'token': '(.*?)'"
@@ -162,7 +174,7 @@ async def on_connect(sid, *args):
         sio.disconnect(sid)
         logger.info(f"客户端 {sid} 连接失败（原因: 认证出错）")
 
-# 当节点端退出连接时
+## 当节点端退出连接时
 @sio.on('disconnect')
 async def on_disconnect(sid, *args):
     session = await sio.get_session(sid)
@@ -174,7 +186,7 @@ async def on_disconnect(sid, *args):
     else:
         logger.info(f"客户端 {sid} 关闭了连接")
 
-# 节点启动时
+## 节点启动时
 @sio.on('enable')
 async def on_cluster_enable(sid, data, *args):
     session = await sio.get_session(sid)
@@ -199,15 +211,14 @@ async def on_cluster_enable(sid, data, *args):
         logger.info(f"{sid} 测速未通过（测量带宽: {bandwidth[1]}）")
         return [{"message": f"错误: {bandwidth[1]}"}]
 
-# 节点保活时
+## 节点保活时
 @sio.on('keep-alive')
 async def on_cluster_keep_alive(sid, data, *args):
     logger.info(f"{sid} 保活（请求数: {data['hits']} 次 | 请求数据量: {utils.hum_convert(data['bytes'])}）")
     return [None, datetime.now(timezone.utc).isoformat()]
     # return [None, False]
 
-# 节点禁用时
-@sio.on('disable')
+@sio.on('disable')  ## 节点禁用时
 async def on_cluster_disable(sid, *args):
     logger.info(f"{sid} 申请禁用集群")
     session = await sio.get_session(sid)
@@ -220,8 +231,8 @@ async def on_cluster_disable(sid, *args):
         logger.info(f"{sid} 尝试禁用集群失败（原因: 节点没有启用）")
     return [None, True]
 
-
-def init():
+# 运行主程序
+def init(): 
     # 检查文件夹是否存在
     if not os.path.exists(Path('./data/')):
         os.makedirs(Path('./data/'))
@@ -240,44 +251,3 @@ def init():
     except KeyboardInterrupt:
         scheduler.shutdown()
         logger.info('主控已经成功关闭。')
-
-
-
-#              这是一只一只一只 屎山大佛
-#
-#                      _oo0oo_
-#                     o8888888o
-#                     88" . "88
-#                     (| -_- |)
-#                     0\  =  /0
-#                   ___/`---'\___
-#                 .' \\|     |// '.
-#                / \\|||  :  |||// \
-#               / _||||| -:- |||||- \
-#              |   | \\\  - /// |   |
-#              | \_|  ''\---/''  |_/ |
-#              \  .-\__  '-'  ___/-. /
-#             ___'. .'  /--.--\  `. .'___
-#         ."" '<  `.___\_<|>_/___.' >' "".
-#        | | :  `- \`.;`\ _ /`;.`/ - ` : | |
-#        \  \ `_.   \_ __\ /__ _/   .-` /  /
-#    =====`-.____`.___ \_____/___.-`___.-'=====
-#                      `=---='
-#
-#
-#    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  
-#       佛祖保佑         永不宕机        永无BUG
-#
-#
-#         佛曰:
-#             写字楼里写字间，写字间里程序员；
-#             程序人员写程序，又拿程序换酒钱。
-#             酒醒只在网上坐，酒醉还来网下眠；
-#             酒醉酒醒日复日，网上网下年复年。
-#             但愿老死电脑间，不愿鞠躬老板前；
-#             奔驰宝马贵者趣，公交自行程序员。
-#             别人笑我忒疯癫，我笑自己命太贱；
-#             不见满街漂亮妹，哪个归得程序员？
-#             君子出生在墙内，并非君子之错也.
-#
-#                        来自 ZeroWolf233  2024.7.30 10:51
