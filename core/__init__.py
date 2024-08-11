@@ -5,7 +5,7 @@ import hmac
 import time
 import hashlib
 from pathlib import Path
-from random import choice, choices
+from random import choice, choices, random
 from datetime import datetime, timezone
 
 import uvicorn
@@ -170,6 +170,7 @@ async def on_connect(sid, *args):
     if cluster_is_exist and cluster.secret == utils.decode_jwt(token)['cluster_secret']:
         await sio.save_session(sid, {"cluster_id": cluster.id, "cluster_secret": cluster.secret, "token": token})
         logger.info(f"客户端 {sid} 连接成功（CLUSTER_ID: {cluster.id}）")
+        await sio.emit("message", "欢迎使用 iodine@home，本项目已在 https://github.com/ZeroNexis/iodine-at-home 开源，期待您的贡献与支持。", sid)
     else:
         sio.disconnect(sid)
         logger.info(f"客户端 {sid} 连接失败（原因: 认证出错）")
@@ -197,12 +198,15 @@ async def on_cluster_enable(sid, data, *args):
     logger.info(f"{sid} 申请启用（CLUSTER_ID: {session['cluster_id']}）")
     host = data.get("host", session.get("ip"))
     await cluster.edit(host = host, port = data["port"], version = data["version"], runtime = data["flavor"]["runtime"])
+    if data["version"] != "1.11.0":
+        await sio.emit("message", "当前版本已过时，推荐升级到 v1.11.0 或以上版本。", sid)
     time.sleep(1)
     bandwidth = await utils.measure_cluster(10, cluster.json())
     if bandwidth[0] and bandwidth[1] >= 10:
         enable_cluster_list.append(cluster.json())
         logger.info(f"{sid} 上线成功（测量带宽: {bandwidth[1]}）")
-        # utils.choose_file()
+        if cluster.trust < 0:
+            await sio.emit("message", "节点信任度过低，请保持稳定在线。", sid)
         return [None, True]
     elif bandwidth[0] and bandwidth[1] < 10:
         logger.info(f"{sid} 测速未通过（测量带宽: {bandwidth[1]}）")
