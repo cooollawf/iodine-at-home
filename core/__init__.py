@@ -251,7 +251,12 @@ def init():
     app.mount('/', socket)
     try:
         scheduler.start()
-        uvicorn.run(app, host=settings.HOST, port=settings.PORT, access_log=False)
+        if settings.CERTIFICATES_STATUS == True:
+            logger.info(f'正在使用证书启动主控...')
+            uvicorn.run(app, host=settings.HOST, port=settings.PORT, ssl_certfile=settings.CERT_PATH, ssl_keyfile=settings.KEY_PATH, access_log=settings.ACCESS_LOG)
+        else:
+            logger.info(f'正在使用普通模式启动主控...')
+            uvicorn.run(app, host=settings.HOST, port=settings.PORT, access_log=settings.ACCESS_LOG)
     except KeyboardInterrupt:
         scheduler.shutdown()
         logger.info('主控已经成功关闭。')

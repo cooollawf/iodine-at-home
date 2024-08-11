@@ -45,13 +45,19 @@ python .\main.py
 HOST = '0.0.0.0'
 PORT = 8080
 USERAGENT = 'iodine-ctrl/$version'
+ACCESS_LOG = true
 
 # 机密配置，请勿外传！！！
 TOKEN = '123456'
 JWT_SECRET = '114514'
 
-# 文件配置
-GIT_REPOSITORY_LIST = ""
+# 证书配置
+CERTIFICATES = false
+CERT_PATH = './certificates/cert.pem'
+KEY_PATH = './certificates/key.pem'
+
+# 文件配置（使用英文逗号进行分隔）
+GIT_REPOSITORY_LIST = "https://github.com/Mxmilu666/bangbang93HUB"
 ```
 
 ## 📖 许可证

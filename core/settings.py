@@ -27,7 +27,19 @@ settings = dotenv_values(dotenvPath)
 
 HOST = str(settings.get('HOST', '0.0.0.0'))
 PORT = int(settings.get('PORT', 8080))
+ACCESS_LOG = bool(settings.get('ACCESS_LOG', 'true'))
 JWT_SECRET = str(settings.get('JWT_SECRET', '114514'))
 TOKEN = str(settings.get('TOKEN', '123456'))
 GIT_REPOSITORY = settings.get('GIT_REPOSITORY_LIST', "https://github.com/Mxmilu666/bangbang93HUB")
 GIT_REPOSITORY_LIST = GIT_REPOSITORY.split(",")
+CERTIFICATES_STATUS = bool(settings.get('CERTIFICATES', 'False'))
+CERT_PATH = Path(settings.get('CERT_PATH', ''))
+KEY_PATH = Path(settings.get('KEY_PATH', ''))
+
+# 获取证书与密钥相关内容
+if CERTIFICATES_STATUS == True:
+    with open(CERT_PATH, "r", encoding="utf-8") as cert_file:
+        CERT = cert_file.read().strip()
+
+    with open(KEY_PATH, "r", encoding="utf-8") as key_file:
+        KEY = cert_file.read().strip()
