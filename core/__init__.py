@@ -251,7 +251,7 @@ def init():
     app.mount('/', socket)
     try:
         scheduler.start()
-        if settings.CERTIFICATES_STATUS == True:
+        if settings.CERTIFICATES_STATUS == "true":
             logger.info(f'正在使用证书启动主控...')
             uvicorn.run(app, host=settings.HOST, port=settings.PORT, ssl_certfile=settings.CERT_PATH, ssl_keyfile=settings.KEY_PATH, access_log=settings.ACCESS_LOG)
         else:
