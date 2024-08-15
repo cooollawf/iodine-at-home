@@ -34,8 +34,6 @@ app = FastAPI()
 sio = AsyncServer(async_mode='asgi', cors_allowed_origins='*')
 socket = ASGIApp(sio)
 enable_cluster_list = []
-enable_cluster_4_list = []
-enable_cluster_6_list = []
 
 # IODINE @ HOME
 ## 定时执行
@@ -58,14 +56,20 @@ async def fetch_delete_cluster(response: Response, token: str | None,  id: str |
 
 ## 以 JSON 格式返回节点列表
 @app.get("/api/cluster/list")
-async def fetch_cluster_list(response: Response):
-    return await datafile.read_json_from_file("CLUSTER_JSON.json")
+async def fetch_cluster_list(response: Response, token: str | None):
+    if token != settings.TOKEN:
+        return PlainTextResponse("没有权限", 401)
+    return await datafile.read_json_from_file("CLUSTER_LIST.json")
 
 ## 以 JSON 格式返回主控状态
-@app.get("/api/status")
+@app.get("/api/public/statistics")
 async def fetch_status(response: Response):
     return {
-        "currentNodes": len(enable_cluster_list)
+        "name": "iodine-at-home",
+        "author": "ZeroNexis",
+        "version": settings.VERSION,
+        "currentNodes": len(enable_cluster_list),
+        "online_node_list": utils.node_privacy(enable_cluster_list)
     }
 
 ## 以 纯文本 返回主控版本

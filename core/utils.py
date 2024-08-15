@@ -81,7 +81,7 @@ def scan_files(directory_path: Path):
     for dirpath, dirnames, filenames in os.walk(directory_path):
 
         dirnames[:] = [d for d in dirnames if not d.startswith('.')]
-        
+
         unix_style_dirpath = dirpath.replace('\\', '/')
         for filename in filenames:
             if filename.startswith('.'):
@@ -225,3 +225,11 @@ def extract_repo_name(url: str) -> str:
     repo_name = repo_name_with_git.rsplit('.', 1)[0]
 
     return repo_name
+
+def node_privacy(data) -> dict:
+    result = []
+    hide_keys = ["secret", "host", "port"]
+    for item in data:
+        item_without_secrets = {k: v for k, v in item.items() if k not in hide_keys}
+        result.append(item_without_secrets)
+    return result

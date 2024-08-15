@@ -34,7 +34,7 @@ class Cluster:
         await self.update()
     
     def json(self):
-        return {"id": self.id, "secret": self.secret, "trust": self.trust, "bandwidth": self.bandwidth, "host": self.host, "port": self.port}
+        return {"id": self.id, "secret": self.secret, "trust": self.trust, "bandwidth": self.bandwidth, "host": self.host, "port": self.port, "version": self.version}
 
 # 本段修改自 TTB-Network/python-openbmclapi 中部分代码
 # 仓库链接: https://github.com/TTB-Network/python-openbmclapi
