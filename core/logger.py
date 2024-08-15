@@ -12,7 +12,7 @@ class LoggingLogger:
         self.log.remove()
         self.log.add(sys.stderr, format=basic_logger_format, level="DEBUG", colorize=True)
         self.log.add(
-            Path("./logs/{time:YYYY-MM-DD}.log"),
+            Path("/.logs/{time:YYYY-MM-DD}.log"),
             retention="10 days",
             encoding="utf-8",
         )

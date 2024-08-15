@@ -151,10 +151,10 @@ class Avro:
 
 class FileObject:
     def __init__(self, filepath: str):
-        self.path = filepath
-        self.hash = utils.hash_file(self.path)
-        self.size = os.path.getsize(self.path)
-        self.mtime = int(os.path.getmtime(self.path) * 1000)
+        self.path = filepath.lstrip('.')
+        self.hash = utils.hash_file(f".{self.path}")
+        self.size = os.path.getsize(f".{self.path}")
+        self.mtime = int(os.path.getmtime(f".{self.path}") * 1000)
     
     def to_string(self) -> str:
         return f"<FileObject path={self.path} hash={self.hash} size={self.size} mtime={self.mtime}>"
