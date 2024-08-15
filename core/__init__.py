@@ -195,7 +195,6 @@ async def on_cluster_enable(sid, data, *args):
     cluster_is_exist = await cluster.initialize()
     if cluster_is_exist == False:
         return [{"message": f"错误: 节点似乎并不存在，请检查配置文件"}]
-    logger.info(f"{sid} 申请启用（CLUSTER_ID: {session['cluster_id']}）")
     host = data.get("host", session.get("ip"))
     await cluster.edit(host = host, port = data["port"], version = data["version"], runtime = data["flavor"]["runtime"])
     if data["version"] != "1.11.0":
@@ -204,7 +203,7 @@ async def on_cluster_enable(sid, data, *args):
     bandwidth = await utils.measure_cluster(10, cluster.json())
     if bandwidth[0] and bandwidth[1] >= 10:
         enable_cluster_list.append(cluster.json())
-        logger.info(f"{sid} 上线成功（测量带宽: {bandwidth[1]}）")
+        logger.info(f"{sid} 上线（测量带宽: {bandwidth[1]} | {session['cluster_id']}）")
         if cluster.trust < 0:
             await sio.emit("message", "节点信任度过低，请保持稳定在线。", sid)
         return [None, True]
@@ -224,13 +223,12 @@ async def on_cluster_keep_alive(sid, data, *args):
 
 @sio.on('disable')  ## 节点禁用时
 async def on_cluster_disable(sid, *args):
-    logger.info(f"{sid} 申请禁用集群")
     session = await sio.get_session(sid)
     cluster = Cluster(str(session['cluster_id']))
     await cluster.initialize()
     try:
         enable_cluster_list.remove(cluster.json())
-        logger.info(f"{sid} 尝试禁用集群")
+        logger.info(f"{sid} 禁用集群")
     except ValueError:
         logger.info(f"{sid} 尝试禁用集群失败（原因: 节点没有启用）")
     return [None, True]

@@ -80,8 +80,9 @@ def scan_files(directory_path: Path):
 
     for dirpath, dirnames, filenames in os.walk(directory_path):
 
+        dirnames[:] = [d for d in dirnames if not d.startswith('.')]
+        
         unix_style_dirpath = dirpath.replace('\\', '/')
-
         for filename in filenames:
             if filename.startswith('.'):
                 continue
