@@ -33,7 +33,8 @@ from apscheduler.schedulers.background import BackgroundScheduler
 app = FastAPI()
 sio = AsyncServer(async_mode='asgi', cors_allowed_origins='*')
 socket = ASGIApp(sio)
-enable_cluster_list = []
+online_cluster_list = []
+online_cluster_list_json = []
 
 # IODINE @ HOME
 ## 定时执行
@@ -68,14 +69,18 @@ async def fetch_status(response: Response):
         "name": "iodine-at-home",
         "author": "ZeroNexis",
         "version": settings.VERSION,
-        "currentNodes": len(enable_cluster_list),
-        "online_node_list": utils.node_privacy(enable_cluster_list)
+        "currentNodes": len(online_cluster_list),
+        "online_node_list": online_cluster_list
     }
 
-## 以 纯文本 返回主控版本
-@app.get("/api/version")
-async def fetch_version(response: Response):
-    return PlainTextResponse(settings.VERSION, 200)    
+## 以 JSON 格式返回某个节点的数据
+@app.get("/api/public/cluster/{id}")
+async def fetch_version(response: Response, id: str):
+    data = await database.query_cluster_data(id)
+    if data != False:
+        return utils.node_privacy(data)
+    else:
+        return PlainTextResponse("节点未找到", 404) 
 
 # OpenBMCLAPI 部分
 ## 下发 challenge（有效时间: 5 分钟）
@@ -131,10 +136,10 @@ async def download_file(path: str):
         return PlainTextResponse("Not Found", 404)
     if Path(f"./files/{path}").is_dir == True:
         return PlainTextResponse("Not Found", 404)
-    if len(enable_cluster_list) == 0:
+    if len(online_cluster_list) == 0:
         return FileResponse(f"./files/{path}")
     else:
-        cluster = choice(enable_cluster_list)
+        cluster = choice(online_cluster_list_json)
         file = FileObject(f"./files/{path}")
         url = utils.get_url(cluster["host"], cluster["port"], f"/download/{file.hash}", utils.get_sign(file.hash, cluster["secret"])) 
         return RedirectResponse(url, 302)
@@ -173,7 +178,7 @@ async def on_connect(sid, *args):
     cluster_is_exist = await cluster.initialize()
     if cluster_is_exist and cluster.secret == utils.decode_jwt(token)['cluster_secret']:
         await sio.save_session(sid, {"cluster_id": cluster.id, "cluster_secret": cluster.secret, "token": token})
-        logger.info(f"客户端 {sid} 连接成功（CLUSTER_ID: {cluster.id}）")
+        logger.info(f"客户端 {sid} 连接成功（ID: {cluster.id}）")
         await sio.emit("message", "欢迎使用 iodine@home，本项目已在 https://github.com/ZeroNexis/iodine-at-home 开源，期待您的贡献与支持。", sid)
     else:
         sio.disconnect(sid)
@@ -185,8 +190,8 @@ async def on_disconnect(sid, *args):
     session = await sio.get_session(sid)
     cluster = Cluster(str(session['cluster_id']))
     cluster_is_exist = await cluster.initialize()
-    if cluster_is_exist and cluster.json() in enable_cluster_list:
-        enable_cluster_list.remove(cluster.json())
+    if cluster_is_exist and cluster.json() in online_cluster_list_json:
+        online_cluster_list_json.remove(cluster.json())
         logger.info(f"{sid} 异常断开连接，已从在线列表中删除")
     else:
         logger.info(f"客户端 {sid} 关闭了连接")
@@ -199,6 +204,8 @@ async def on_cluster_enable(sid, data, *args):
     cluster_is_exist = await cluster.initialize()
     if cluster_is_exist == False:
         return [{"message": f"错误: 节点似乎并不存在，请检查配置文件"}]
+    if str(cluster.id) in online_cluster_list == True:
+        return [{"message": f"错误: 节点已经在线，请检查配置文件"}]
     host = data.get("host", session.get("ip"))
     await cluster.edit(host = host, port = data["port"], version = data["version"], runtime = data["flavor"]["runtime"])
     if data["version"] != "1.11.0":
@@ -206,8 +213,9 @@ async def on_cluster_enable(sid, data, *args):
     time.sleep(1)
     bandwidth = await utils.measure_cluster(10, cluster.json())
     if bandwidth[0] and bandwidth[1] >= 10:
-        enable_cluster_list.append(cluster.json())
-        logger.info(f"{sid} 上线（测量带宽: {bandwidth[1]} | {session['cluster_id']}）")
+        online_cluster_list.append(cluster.id)
+        online_cluster_list_json.append(cluster.json())
+        logger.info(f"{sid} 上线（测量带宽: {bandwidth[1]} | ID: {session['cluster_id']}）")
         if cluster.trust < 0:
             await sio.emit("message", "节点信任度过低，请保持稳定在线。", sid)
         return [None, True]
@@ -221,9 +229,13 @@ async def on_cluster_enable(sid, data, *args):
 ## 节点保活时
 @sio.on('keep-alive')
 async def on_cluster_keep_alive(sid, data, *args):
+    session = await sio.get_session(sid)
+    cluster = Cluster(str(session['cluster_id']))
+    cluster_is_exist = await cluster.initialize()
+    if cluster_is_exist == False:
+        return [None, False]
     logger.info(f"{sid} 保活（请求数: {data['hits']} 次 | 请求数据量: {utils.hum_convert(data['bytes'])}）")
     return [None, datetime.now(timezone.utc).isoformat()]
-    # return [None, False]
 
 @sio.on('disable')  ## 节点禁用时
 async def on_cluster_disable(sid, *args):
@@ -231,7 +243,8 @@ async def on_cluster_disable(sid, *args):
     cluster = Cluster(str(session['cluster_id']))
     await cluster.initialize()
     try:
-        enable_cluster_list.remove(cluster.json())
+        online_cluster_list.remove(cluster.id)
+        online_cluster_list_json.remove(cluster.json())
         logger.info(f"{sid} 禁用集群")
     except ValueError:
         logger.info(f"{sid} 尝试禁用集群失败（原因: 节点没有启用）")

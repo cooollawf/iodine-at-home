@@ -227,9 +227,6 @@ def extract_repo_name(url: str) -> str:
     return repo_name
 
 def node_privacy(data) -> dict:
-    result = []
-    hide_keys = ["secret", "host", "port"]
-    for item in data:
-        item_without_secrets = {k: v for k, v in item.items() if k not in hide_keys}
-        result.append(item_without_secrets)
+    hide_keys = ["CLUSTER_SECRET", "CLUSTER_HOST", "CLUSTER_PORT"]
+    result = {key: value for key, value in data.items() if key not in hide_keys}
     return result

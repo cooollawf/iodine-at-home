@@ -34,11 +34,11 @@ class Cluster:
         await self.update()
     
     def json(self):
-        return {"id": self.id, "secret": self.secret, "trust": self.trust, "bandwidth": self.bandwidth, "host": self.host, "port": self.port, "version": self.version}
+        return {"name": self.name, "id": self.id, "secret": self.secret, "trust": self.trust, "bandwidth": self.bandwidth, "host": self.host, "port": self.port, "version": self.version}
 
 # 本段修改自 TTB-Network/python-openbmclapi 中部分代码
 # 仓库链接: https://github.com/TTB-Network/python-openbmclapi
-# 
+# 源代码使用 MIT License 协议开源 | Copyright (c) 2024 TTB-Network
 class Avro:
     def __init__(self, initial_bytes: bytes = b"", encoding: str = "utf-8") -> None:
         self.io = io.BytesIO(initial_bytes)
