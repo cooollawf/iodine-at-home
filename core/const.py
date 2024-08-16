@@ -2,6 +2,9 @@
 all_figures = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0']
 all_small_letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']
 
+# 敏感数据的键
+hide_keys = ["CLUSTER_SECRET", "CLUSTER_BANDWIDTH", "CLUSTER_BANREASON", "CLUSTER_HOST", "CLUSTER_PORT"]
+
 # 随机 User-Agent 列表
 user_agent_list = [
     # 很普通的User-Agent

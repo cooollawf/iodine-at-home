@@ -111,7 +111,7 @@ def save_calculate_filelist():
     avro.write(b'\x00')
     result = pyzstd.compress(avro.io.getvalue())
     avro.io.close()
-    datafile.write_filelist_to_cache_nosaync("filelist.avro", result)
+    datafile.write_filelist_to_cache_noasync("filelist.avro", result)
     logger.info("文件列表计算成功，已保存至本地。")
     return result
 
@@ -226,7 +226,13 @@ def extract_repo_name(url: str) -> str:
 
     return repo_name
 
-def node_privacy(data) -> dict:
-    hide_keys = ["CLUSTER_SECRET", "CLUSTER_HOST", "CLUSTER_PORT"]
-    result = {key: value for key, value in data.items() if key not in hide_keys}
+def node_privacy(data):
+    result = {key: value for key, value in data.items() if key not in const.hide_keys}
+    return result
+
+def multi_node_privacy(data) -> dict:
+    result = []
+    for item in data:
+        item_without_secrets = {k: v for k, v in item.items() if k not in const.hide_keys}
+        result.append(item_without_secrets)
     return result

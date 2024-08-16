@@ -42,28 +42,21 @@ scheduler = BackgroundScheduler()
 scheduler.add_job(utils.save_calculate_filelist, 'interval', minutes=1, id='refresh_filelist')
 
 ## 新建节点
-@app.get("/api/cluster/create")
+@app.get("/api/node/create")
 async def fetch_create_cluster(response: Response, token: str | None, name: str | None, id: str | None, secret: str | None, bandwidth: str | None):
     if token != settings.TOKEN:
         return PlainTextResponse("没有权限", 401)
     return await database.create_cluster(name, id, secret, bandwidth)
 
 ## 删除节点
-@app.get("/api/cluster/delete")
+@app.get("/api/node/delete")
 async def fetch_delete_cluster(response: Response, token: str | None,  id: str | None):
     if token != settings.TOKEN:
         return PlainTextResponse("没有权限", 401)
     return await database.delete_cluster(id)
 
-## 以 JSON 格式返回节点列表
-@app.get("/api/cluster/list")
-async def fetch_cluster_list(response: Response, token: str | None):
-    if token != settings.TOKEN:
-        return PlainTextResponse("没有权限", 401)
-    return await datafile.read_json_from_file("CLUSTER_LIST.json")
-
 ## 以 JSON 格式返回主控状态
-@app.get("/api/public/statistics")
+@app.get("/api/status")
 async def fetch_status(response: Response):
     return {
         "name": "iodine-at-home",
@@ -73,14 +66,11 @@ async def fetch_status(response: Response):
         "online_node_list": online_cluster_list
     }
 
-## 以 JSON 格式返回某个节点的数据
-@app.get("/api/public/cluster/{id}")
-async def fetch_version(response: Response, id: str):
-    data = await database.query_cluster_data(id)
-    if data != False:
-        return utils.node_privacy(data)
-    else:
-        return PlainTextResponse("节点未找到", 404) 
+## 以 JSON 格式返回排名
+@app.get("/api/node/all")
+async def fetch_version(response: Response):
+    data = await datafile.read_json_from_file("ALL_CLUSTER.json")
+    return utils.multi_node_privacy(data)
 
 # OpenBMCLAPI 部分
 ## 下发 challenge（有效时间: 5 分钟）
@@ -232,7 +222,7 @@ async def on_cluster_keep_alive(sid, data, *args):
     session = await sio.get_session(sid)
     cluster = Cluster(str(session['cluster_id']))
     cluster_is_exist = await cluster.initialize()
-    if cluster_is_exist == False:
+    if cluster_is_exist == False or cluster.id not in online_cluster_list:
         return [None, False]
     logger.info(f"{sid} 保活（请求数: {data['hits']} 次 | 请求数据量: {utils.hum_convert(data['bytes'])}）")
     return [None, datetime.now(timezone.utc).isoformat()]

@@ -3,6 +3,13 @@ import asyncio
 import aiofiles
 from pathlib import Path
 
+def dict_to_list(data):
+    result = []
+    for key, value in data.items():
+        value["CLUSTER_ID"] = key
+        result.append(value)
+    return result
+
 # JSON 部分
 json_lock = asyncio.Lock()
 json_lock = asyncio.Lock()
@@ -22,6 +29,7 @@ async def write_json_to_file(filename: str, content):
     async with json_lock:
         async with aiofiles.open(data_file, 'w', encoding="utf-8") as f:
             await f.write(json.dumps(content))
+    write_json_to_file_noasync("ALL_CLUSTER.json", dict_to_list(content))
 
 ## 写入 JSON - 无异步版
 def write_json_to_file_noasync(filename: str, content):
@@ -49,7 +57,7 @@ async def write_filelist_to_cache(filename: str, filelist):
             f.write(filelist)
 
 ## 写入 FILELIST - 无异步版
-def write_filelist_to_cache_nosaync(filename: str, filelist):
+def write_filelist_to_cache_noasync(filename: str, filelist):
     cache_file = Path(f"./data/{filename}")
     with open(cache_file, 'wb') as f:
         f.write(filelist)
