@@ -8,11 +8,8 @@ from pathlib import Path
 from random import choice, choices, random
 from datetime import datetime, timezone
 
-import uvicorn
-from starlette.middleware.cors import CORSMiddleware
-from fastapi import FastAPI, Header, Response, status, Request, Form
-from fastapi.responses import PlainTextResponse, RedirectResponse, FileResponse, HTMLResponse
-import uvicorn.config
+from aiohttp import web
+from aiohttp.web import Request
 
 import core.const as const
 import core.utils as utils
@@ -23,35 +20,28 @@ import core.settings as settings
 from core.upstream import Upstream
 from core.types import Cluster, FileObject
 
-from starlette.routing import Mount
-from starlette.applications import Starlette
-from socketio.asgi import ASGIApp
-from socketio.async_server import AsyncServer
+import socketio
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
 ## 初始化变量
 now_bytes = 0
 now_bytes = 0 
-app = FastAPI()
-sio = AsyncServer(async_mode='asgi', cors_allowed_origins='*')
-socket = ASGIApp(sio)
 online_cluster_list = []
 online_cluster_list_json = []
 
+routes = web.RouteTableDef()
+app = web.Application()
+
+sio = socketio.AsyncServer(async_mode='aiohttp')
+sio.attach(app)
+
 # 允许所有跨域请求
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],  # 允许所有 HTTP 方法
-    allow_headers=["*"],  # 允许所有头部
-)
 
 # IODINE @ HOME
 ## 定时执行
 scheduler = BackgroundScheduler()
-scheduler.add_job(utils.save_calculate_filelist, 'interval', seconds=5, id='refresh_filelist')
+scheduler.add_job(utils.save_calculate_filelist, 'interval', minutes=5, id='refresh_filelist')
 
 ## 每天凌晨重置数据
 def reset_data():
@@ -65,56 +55,60 @@ def reset_data():
 scheduler.add_job(reset_data, 'cron', day_of_week='mon-sun', hour=0, minute=0)
 
 ## 新建节点
-@app.get("/api/node/create")
-async def fetch_create_cluster(response: Response, token: str | None, name: str | None, id: str | None, secret: str | None, bandwidth: str | None):
+@routes.get("/api/node/create")
+async def fetch_create_cluster(request: Request, token: str | None, name: str | None, id: str | None, secret: str | None, bandwidth: str | None):
     if token != settings.TOKEN:
-        return PlainTextResponse("没有权限", 401)
+        return web.Response("没有权限", 401)
     return await database.create_cluster(name, id, secret, bandwidth)
 
 ## 删除节点
-@app.get("/api/node/delete")
-async def fetch_delete_cluster(response: Response, token: str | None,  id: str | None):
+@routes.get("/api/node/delete")
+async def fetch_delete_cluster(request: Request, token: str | None,  id: str | None):
     if token != settings.TOKEN:
-        return PlainTextResponse("没有权限", 401)
+        return web.Response("没有权限", 401)
     return await database.delete_cluster(id)
 
 ## 以 JSON 格式返回主控状态
-@app.get("/api/status")
-async def fetch_status(response: Response):
-    return {
+@routes.get("/api/status")
+async def fetch_status(request: Request):
+    return web.json_response({
         "name": "iodine-at-home",
         "author": "ZeroNexis",
         "version": settings.VERSION,
         "currentNodes": len(online_cluster_list),
         "online_node_list": online_cluster_list
-    }
+    })
 
 ## 以 JSON 格式返回排名
-@app.get("/api/rank")
-async def fetch_version(response: Response):
+@routes.get("/api/rank")
+async def fetch_version(request: Request):
     data = await datafile.read_json_from_file("daily.json")
     return utils.multi_node_privacy(data["nodes"])
 
 # OpenBMCLAPI 部分
 ## 下发 challenge（有效时间: 5 分钟）
-@app.get("/openbmclapi-agent/challenge")
-async def fetch_challenge(response: Response, clusterId: str | None = ""):
+@routes.get("/openbmclapi-agent/challenge")
+async def fetch_challenge(request: Request):
+    clusterId = request.query.get("clusterId", "")
     cluster = Cluster(clusterId)
     cluster_is_exist = await cluster.initialize()
     if cluster_is_exist and cluster.isBanned == 0:
-        return {"challenge": utils.encode_jwt({'cluster_id': clusterId, 'cluster_secret': cluster.secret, "exp": int(time.time()) + 1000 * 60 * 5})}
+        return web.json_response({"challenge": utils.encode_jwt({'cluster_id': clusterId, 'cluster_secret': cluster.secret, "exp": int(time.time()) + 1000 * 60 * 5})})
     elif cluster_is_exist and cluster.isBanned == True:
-        return PlainTextResponse(f"节点被封禁，原因: {cluster.ban_reason}", 403)
+        return web.Response(text=f"节点被封禁，原因: {cluster.ban_reason}", status=403)
     else:
-        return PlainTextResponse("节点未找到", 404)
+        return web.Response(text="节点未找到", status=404)
 
 ## 下发令牌（有效日期: 1 天）
-@app.post("/openbmclapi-agent/token")
-async def fetch_token(request: Request, resoponse: Response):
-    try:
+@routes.post("/openbmclapi-agent/token")
+async def fetch_token(request: Request):
+    content_type = request.content_type
+    if 'application/json' in content_type:
         data = await request.json()
-    except json.decoder.JSONDecodeError:
-        data = await request.form()
+    elif 'application/x-www-form-urlencoded' in content_type or 'multipart/form-data' in content_type:
+        data = await request.post()
+    else:
+        return web.Response(status=400, text="Unsupported media type")
     clusterId = data.get("clusterId")
     challenge = data.get("challenge")
     signature = data.get("signature")
@@ -124,60 +118,64 @@ async def fetch_token(request: Request, resoponse: Response):
     h.update(challenge.encode())
     if cluster_is_exist and utils.decode_jwt(challenge)["cluster_id"] == clusterId and utils.decode_jwt(challenge)["exp"] > int(time.time()):
         if str(h.hexdigest()) == signature:
-            return {"token": utils.encode_jwt({'cluster_id': clusterId, 'cluster_secret': cluster.secret}), "ttl": 1000 * 60 * 60 * 24}
+            return web.json_response({"token": utils.encode_jwt({'cluster_id': clusterId, 'cluster_secret': cluster.secret}), "ttl": 1000 * 60 * 60 * 24})
         else:
-            return PlainTextResponse("没有授权", 401)
+            return web.Response(text="没有授权", status=401)
     else:
-        return PlainTextResponse("没有授权", 401)
+        return web.Response(text="没有授权", status=401)
     
 ## 建议同步参数
-@app.get("/openbmclapi/configuration")
-def fetch_configuration():
-    return {"sync": {"source": "center", "concurrency": 100}}
+@routes.get("/openbmclapi/configuration")
+def fetch_configuration(request: Request):
+    return web.json_response({"sync": {"source": "center", "concurrency": 100}})
 
 ## 文件列表
-@app.get("/openbmclapi/files")
-async def fetch_filesList():
+@routes.get("/openbmclapi/files")
+async def fetch_filesList(request: Request):
     # TODO: 获取文件列表
     filelist = await datafile.read_filelist_from_cache("filelist.avro")
-    return HTMLResponse(content=filelist, media_type="application/octet-stream")
+    return web.Response(body=filelist, content_type="application/octet-stream")
 
 ## 普通下载（从主控或节点拉取文件）
-@app.get("/files/{path:path}")
-async def download_file(path: str):
+@routes.get("/files/{path:.+}")
+async def download_file(request: Request):
+    path = request.match_info['path']
     if Path(f"./files/{path}").is_file() == False:
-        return PlainTextResponse("Not Found", 404)
+        return web.HTTPNotFound()
     if Path(f"./files/{path}").is_dir == True:
-        return PlainTextResponse("Not Found", 404)
+        return web.HTTPNotFound()
     if len(online_cluster_list) == 0:
-        return FileResponse(f"./files/{path}")
+        return web.FileResponse(f"./files/{path}")
     else:
         cluster = choice(online_cluster_list_json)
         file = FileObject(f"./files/{path}")
         url = utils.get_url(cluster["host"], cluster["port"], f"/download/{file.hash}", utils.get_sign(file.hash, cluster["secret"])) 
-        return RedirectResponse(url, 302)
+        return web.HTTPFound(url)
 
 ## 应急同步（从主控拉取文件）
-@app.get("/openbmclapi/download/{hash}")
-async def download_file_from_ctrl(hash: str):
+@routes.get("/openbmclapi/download/{hash}")
+async def download_file_from_ctrl(request: Request, hash: str):
     try:
         filelist = await datafile.read_json_from_file("filelist.json")
         path = filelist[hash]["path"]
-        return FileResponse(Path(f".{path}"))
+        return web.FileResponse(Path(f".{path}"))
     except ValueError:
-        return PlainTextResponse("Not Found", 404)
+        return web.Response(text="Not Found", status=404)
 
 ## 举报
-@app.post("/openbmclapi/report")
+@routes.post("/openbmclapi/report")
 async def fetch_report(request: Request):
-    try:
+    content_type = request.content_type
+    if 'application/json' in content_type:
         data = await request.json()
-    except json.decoder.JSONDecodeError:
-        data = await request.form()
+    elif 'application/x-www-form-urlencoded' in content_type or 'multipart/form-data' in content_type:
+        data = await request.post()
+    else:
+        return web.Response(status=400, text="Unsupported media type")
     urls = data.get("urls")
     error = data.get("error")
     logger.warning(f"收到举报, 重定向记录: {urls}，错误信息: {error}")
-    return Response(status_code=200)
+    return web.Response(status=200)
 
 ## 节点端连接时
 @sio.on('connect')
@@ -282,15 +280,15 @@ def init():
         Upstream(i, f"./files/{name}").fetch()
         scheduler.add_job(Upstream(i, f"./files/{name}").fetch, 'interval', minutes=5, id=f'fetch_{name}')
     utils.save_calculate_filelist()
-    app.mount('/', socket)
+    app.add_routes(routes)
     try:
         scheduler.start()
         if settings.CERTIFICATES_STATUS == "true":
             logger.info(f'正在使用证书启动主控...')
-            uvicorn.run(app, host=settings.HOST, port=settings.PORT, ssl_certfile=settings.CERT_PATH, ssl_keyfile=settings.KEY_PATH, access_log=settings.ACCESS_LOG)
+            web.run_app(app, host=settings.HOST, port=settings.PORT, ssl_context=settings.ssl_context)
         else:
             logger.info(f'正在使用普通模式启动主控...')
-            uvicorn.run(app, host=settings.HOST, port=settings.PORT, access_log=settings.ACCESS_LOG)
+            web.run_app(app, host=settings.HOST, port=settings.PORT)
     except KeyboardInterrupt:
         scheduler.shutdown()
         logger.info('主控已经成功关闭。')

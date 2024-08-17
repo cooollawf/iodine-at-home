@@ -1,4 +1,5 @@
 import os
+import ssl
 import sys
 import yaml
 import httpx
@@ -43,8 +44,10 @@ else:
     sys.exit(1)
 
 if CERTIFICATES_STATUS == 'true':
-    CERT_PATH = settings.get('CERT_PATH', '')
-    KEY_PATH = settings.get('KEY_PATH', '')
+    CERT_PATH = Path(settings.get('CERT_PATH', ''))
+    KEY_PATH = Path(settings.get('KEY_PATH', ''))
+    ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+    ssl_context.load_cert_chain(certfile=CERT_PATH, keyfile=KEY_PATH)
 
 # # 获取证书与密钥相关内容
 # if CERTIFICATES_STATUS == True:
