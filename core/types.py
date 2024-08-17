@@ -3,6 +3,8 @@ import os
 import core.utils as utils
 from pathlib import Path
 from typing import Optional
+
+import core.datafile as datafile
 import core.database as database
 
 class Cluster:
@@ -10,7 +12,8 @@ class Cluster:
         self.id = id
         
     async def initialize(self):
-        if await database.query_cluster_data(self.id) != False:
+        cluster_list = list(await datafile.read_json_from_file("CLUSTER_LIST.json"))
+        if self.id in cluster_list:
             await self.update()
             return True
         else:

@@ -3,13 +3,6 @@ import asyncio
 import aiofiles
 from pathlib import Path
 
-def dict_to_list(data):
-    result = []
-    for key, value in data.items():
-        value["CLUSTER_ID"] = key
-        result.append(value)
-    return result
-
 # JSON 部分
 json_lock = asyncio.Lock()
 json_lock = asyncio.Lock()
@@ -17,6 +10,8 @@ json_lock = asyncio.Lock()
 ## 读取 JSON
 async def read_json_from_file(filename: str):
     data_file = Path(f"./data/{filename}")
+    # if not data_file.exists():
+    #     return None
     async with json_lock:
         async with aiofiles.open(data_file, "r", encoding="utf-8") as f:
             content = await f.read()
@@ -29,7 +24,17 @@ async def write_json_to_file(filename: str, content):
     async with json_lock:
         async with aiofiles.open(data_file, 'w', encoding="utf-8") as f:
             await f.write(json.dumps(content))
-    write_json_to_file_noasync("ALL_CLUSTER.json", dict_to_list(content))
+
+## 读取 JSON - 无异步版
+def read_json_from_file_noasync(filename: str):
+    try:
+        data_file = Path(f"./data/{filename}")
+        with open(data_file, "r", encoding="utf-8") as f:
+            content = f.read()
+            result = json.loads(content)
+        return result
+    except FileNotFoundError:
+        return {}
 
 ## 写入 JSON - 无异步版
 def write_json_to_file_noasync(filename: str, content):

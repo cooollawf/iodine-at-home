@@ -6,13 +6,14 @@ import json
 import httpx
 import base64
 import random
-import jwt.algorithms
 import pyzstd
 import hashlib
 import aiofiles
+import jwt.algorithms
 from pathlib import Path
 from loguru import logger
 from string import Template
+from datetime import datetime
 from random import choice, choices
 
 import core.const as const
@@ -236,3 +237,11 @@ def multi_node_privacy(data) -> dict:
         item_without_secrets = {k: v for k, v in item.items() if k not in const.hide_keys}
         result.append(item_without_secrets)
     return result
+
+def are_the_same_day(timestamp1, timestamp2):
+    # 将时间戳转换为datetime对象
+    dt1 = datetime.fromtimestamp(timestamp1)
+    dt2 = datetime.fromtimestamp(timestamp2)
+
+    # 比较日期部分是否相同
+    return dt1.date() == dt2.date()

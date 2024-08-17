@@ -9,6 +9,7 @@ from random import choice, choices, random
 from datetime import datetime, timezone
 
 import uvicorn
+from starlette.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, Header, Response, status, Request, Form
 from fastapi.responses import PlainTextResponse, RedirectResponse, FileResponse, HTMLResponse
 import uvicorn.config
@@ -30,16 +31,38 @@ from socketio.async_server import AsyncServer
 from apscheduler.schedulers.background import BackgroundScheduler
 
 ## 初始化变量
+now_bytes = 0
+now_bytes = 0 
 app = FastAPI()
 sio = AsyncServer(async_mode='asgi', cors_allowed_origins='*')
 socket = ASGIApp(sio)
 online_cluster_list = []
 online_cluster_list_json = []
 
+# 允许所有跨域请求
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],  # 允许所有 HTTP 方法
+    allow_headers=["*"],  # 允许所有头部
+)
+
 # IODINE @ HOME
 ## 定时执行
 scheduler = BackgroundScheduler()
-scheduler.add_job(utils.save_calculate_filelist, 'interval', minutes=1, id='refresh_filelist')
+scheduler.add_job(utils.save_calculate_filelist, 'interval', seconds=5, id='refresh_filelist')
+
+## 每天凌晨重置数据
+def reset_data():
+    data = datafile.read_json_from_file_noasync("daily.json")
+    data["lastModified"] = int(time.time())
+    data["bytes"] = 0
+    data["hits"] = 0
+    logger.info("数据已经重置")
+    datafile.write_json_to_file_noasync("daily.json", data)
+
+scheduler.add_job(reset_data, 'cron', day_of_week='mon-sun', hour=0, minute=0)
 
 ## 新建节点
 @app.get("/api/node/create")
@@ -67,10 +90,10 @@ async def fetch_status(response: Response):
     }
 
 ## 以 JSON 格式返回排名
-@app.get("/api/node/all")
+@app.get("/api/rank")
 async def fetch_version(response: Response):
-    data = await datafile.read_json_from_file("ALL_CLUSTER.json")
-    return utils.multi_node_privacy(data)
+    data = await datafile.read_json_from_file("daily.json")
+    return utils.multi_node_privacy(data["nodes"])
 
 # OpenBMCLAPI 部分
 ## 下发 challenge（有效时间: 5 分钟）
@@ -242,12 +265,18 @@ async def on_cluster_disable(sid, *args):
 
 # 运行主程序
 def init(): 
+    logger.info(f'正在进行运行前检查...')
     # 检查文件夹是否存在
-    if not os.path.exists(Path('./data/')):
-        os.makedirs(Path('./data/'))
-    if not os.path.exists(Path('./files/')):
-        os.makedirs(Path('./files/'))
-    logger.info(f'加载中...')
+    dataFolder = Path('./data/')
+    dataFolder.mkdir(parents=True, exist_ok=True)
+    fileFolder = Path('./files/')
+    fileFolder.mkdir(parents=True, exist_ok=True)
+    dailyFile = Path("./files/daily.json")
+    if dailyFile.exists == False:
+        reset_data()
+    daily = datafile.read_json_from_file_noasync("daily.json")
+    if utils.are_the_same_day(int(time.time()), daily["lastModified"]) == False:
+        reset_data()
     for i in settings.GIT_REPOSITORY_LIST:
         name = utils.extract_repo_name(i)
         Upstream(i, f"./files/{name}").fetch()
