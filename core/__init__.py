@@ -8,7 +8,9 @@ from pathlib import Path
 from random import choice, choices, random
 from datetime import datetime, timezone
 
+import aiohttp
 from aiohttp import web
+import aiohttp.log
 from aiohttp.web import Request
 
 import core.const as const
@@ -20,6 +22,7 @@ import core.settings as settings
 from core.upstream import Upstream
 from core.types import Cluster, FileObject
 
+import logging
 import socketio
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -261,6 +264,7 @@ async def on_cluster_disable(sid, *args):
         logger.info(f"{sid} 尝试禁用集群失败（原因: 节点没有启用）")
     return [None, True]
 
+
 # 运行主程序
 def init(): 
     logger.info(f'正在进行运行前检查...')
@@ -269,26 +273,32 @@ def init():
     dataFolder.mkdir(parents=True, exist_ok=True)
     fileFolder = Path('./files/')
     fileFolder.mkdir(parents=True, exist_ok=True)
+    # 检查每日数据
     dailyFile = Path("./files/daily.json")
     if dailyFile.exists == False:
         reset_data()
     daily = datafile.read_json_from_file_noasync("daily.json")
     if utils.are_the_same_day(int(time.time()), daily["lastModified"]) == False:
         reset_data()
+    # 同步上游 git 仓库
     for i in settings.GIT_REPOSITORY_LIST:
         name = utils.extract_repo_name(i)
         Upstream(i, f"./files/{name}").fetch()
         scheduler.add_job(Upstream(i, f"./files/{name}").fetch, 'interval', minutes=5, id=f'fetch_{name}')
+    # 计算文件列表
     utils.save_calculate_filelist()
+    # aiohttp 初始化
     app.add_routes(routes)
     try:
         scheduler.start()
         if settings.CERTIFICATES_STATUS == "true":
-            logger.info(f'正在使用证书启动主控...')
-            web.run_app(app, host=settings.HOST, port=settings.PORT, ssl_context=settings.ssl_context)
+            logger.info(f'使用证书启动主控中...')
+            logger.info(f"正在端口 {settings.PORT} 上监听服务器。")
+            web.run_app(app, host=settings.HOST, port=settings.PORT, ssl_context=settings.ssl_context, print=None)
         else:
-            logger.info(f'正在使用普通模式启动主控...')
-            web.run_app(app, host=settings.HOST, port=settings.PORT)
+            logger.info(f'使用普通模式启动主控中...')
+            logger.info(f"正在端口 {settings.PORT} 上监听服务器。")
+            web.run_app(app, host=settings.HOST, port=settings.PORT, print=None)
     except KeyboardInterrupt:
         scheduler.shutdown()
         logger.info('主控已经成功关闭。')

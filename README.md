@@ -86,5 +86,5 @@ GIT_REPOSITORY_LIST = "https://github.com/Mxmilu666/bangbang93HUB"
 [**Mxmilu666**](https://github.com/Mxmilu666)
 - [bangbang93HUB](https://github.com/Mxmilu666/bangbang93HUB) - 提供了创建该项目的灵感。
 
-[**群内的各位大佬们**](https://qm.qq.com/q/2OfvVrAwVG)(详细名单见贡献者列表)
+[**群内的各位大佬们**](https://qm.qq.com/q/2OfvVrAwVG)（详细名单见贡献者列表）
 - 参加我发出去的 Live Share，让项目更快得以实现。

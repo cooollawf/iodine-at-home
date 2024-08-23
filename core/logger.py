@@ -1,18 +1,19 @@
 import sys
-import time
 from pathlib import Path
 from loguru import logger as Logger
 
-basic_logger_format = "<level>{level}:     {message}</level>"
-report_logger_format = "<green>[{time:YYYY-MM-DD HH:mm:ss}][REPORT]</green>: {message}"
+basic_logger_format = "<green>[{time:HH:mm:ss}]</green><level>[{level}]: {message}</level>"
+# basic_logger_format = "<green>[{time:YYYY-MM-DD HH:mm:ss}]</green> <level>[{level}]<yellow>[{name}:{function}:{line}]</yellow>: {message}</level>"
 
 class LoggingLogger:
     def __init__(self):
         self.log = Logger
         self.log.remove()
         self.log.add(sys.stderr, format=basic_logger_format, level="DEBUG", colorize=True)
+        self.cur_handler = None
         self.log.add(
-            Path("/.logs/{time:YYYY-MM-DD}.log"),
+            Path("./logs/{time:YYYY-MM-DD}.log"),
+            format=basic_logger_format,
             retention="10 days",
             encoding="utf-8",
         )
