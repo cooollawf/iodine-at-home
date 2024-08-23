@@ -1,3 +1,5 @@
+> 我们不推荐您使用该项目，建议转向由 SALTWOOD 开发的 [Open93@Home](https://github.com/SaltWood-Studio/Open93AtHome-V3) 项目<br>Tips: 推荐搭配由 Mxmilu666 开发的 [93Home-Dash](https://github.com/Mxmilu666/93Home-Dash) 一起运行。
+
 <div align="center">
     <img src="https://socialify.git.ci/ZeroNexis/iodine-at-home/image?description=1&language=1&name=1&owner=1&theme=Auto" alt="iodine-at-home" width="640" height="320" />
 
