@@ -63,7 +63,7 @@ GIT_REPOSITORY_LIST = "https://github.com/Mxmilu666/bangbang93HUB"
 ```
 
 ## 📖 许可证
-本项目采用 `Mozilla Public License` 协议开源
+本项目采用 `MIT License` 协议开源
 
 ## 💡 特别鸣谢
 

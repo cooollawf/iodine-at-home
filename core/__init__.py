@@ -25,6 +25,8 @@ from core.types import Cluster, FileObject
 import logging
 import socketio
 
+import sqlite3
+
 from apscheduler.schedulers.background import BackgroundScheduler
 
 ## 初始化变量
