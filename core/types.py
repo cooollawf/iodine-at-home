@@ -4,16 +4,16 @@ import core.utils as utils
 from pathlib import Path
 from typing import Optional
 
+from core.logger import logger
 import core.datafile as datafile
-import core.database as database
+from core.database import database
 
 class Cluster:
     def __init__(self, id: str):
         self.id = id
         
     async def initialize(self):
-        cluster_list = list(await datafile.read_json_from_file("CLUSTER_LIST.json"))
-        if self.id in cluster_list:
+        if await database.query_cluster_data(self.id):
             await self.update()
             return True
         else:
@@ -25,7 +25,10 @@ class Cluster:
         self.name = str(all_data["CLUSTER_NAME"])
         self.bandwidth = int(all_data["CLUSTER_BANDWIDTH"])
         self.trust = int(all_data["CLUSTER_TRUST"])
-        self.isBanned = bool(all_data["CLUSTER_ISBANNED"])
+        if int(all_data["CLUSTER_ISBANNED"]) == 0:
+            self.isBanned = False
+        else:
+            self.isBanned = True
         self.ban_reason = str(all_data["CLUSTER_BANREASON"])
         self.host = str(all_data["CLUSTER_HOST"])
         self.port = int(all_data["CLUSTER_PORT"])
@@ -33,7 +36,7 @@ class Cluster:
         self.runtime = str(all_data["CLUSTER_RUNTIME"])
 
     async def edit(self, name: str = None, secret: str = None, bandwidth: int = None, trust: int = None, isBanned: bool = None, ban_reason: str = None, host: str = None, port: int = None, version: str = None, runtime: str = None):
-        await database.edit_cluster(self.id, name=name, secret=secret, bandwidth=bandwidth, trust=trust, isBanned=isBanned, ban_reason=ban_reason, host=host, port=port, version=version, runtime=runtime)
+        await database.edit_cluster(id=self.id, name=name, secret=secret, bandwidth=bandwidth, trust=trust, isBanned=isBanned, ban_reason=ban_reason, host=host, port=port, version=version, runtime=runtime)
         await self.update()
     
     def json(self):

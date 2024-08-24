@@ -3,6 +3,7 @@ import re
 import json
 import hmac
 import time
+import asyncio
 import hashlib
 from pathlib import Path
 from random import choice, choices, random
@@ -17,7 +18,8 @@ import core.const as const
 import core.utils as utils
 from core.logger import logger
 import core.datafile as datafile
-import core.database as database
+from core.database import database
+import core.command as command
 import core.settings as settings
 from core.upstream import Upstream
 from core.types import Cluster, FileObject
@@ -25,7 +27,7 @@ from core.types import Cluster, FileObject
 import logging
 import socketio
 
-import sqlite3
+import aiosqlite
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
@@ -268,8 +270,9 @@ async def on_cluster_disable(sid, *args):
 
 
 # 运行主程序
-def init(): 
+def init():
     logger.info(f'正在进行运行前检查...')
+    asyncio.run(database.create_table())
     # 检查文件夹是否存在
     dataFolder = Path('./data/')
     dataFolder.mkdir(parents=True, exist_ok=True)
