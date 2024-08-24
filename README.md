@@ -23,7 +23,7 @@ _✨ 开源的文件分发主控，并尝试兼容 OpenBMCLAPI 客户端 ✨_
 
 ## 📖 介绍
 
-基于 [FastAPI](https://fastapi.tiangolo.com/) 和 [Socket.IO](https://socket.io/) 的 Python 文件分发主控。
+基于 [aiohttp](https://docs.aiohttp.org/) 和 [Socket.IO](https://socket.io/) 的 Python 文件分发主控。
 
 ## 🎉 运行
 
