@@ -121,5 +121,14 @@ class Database:
             result = False
         await self.close()
         return result
-        
+    
+    async def get_clusters(self):
+        await self.connect()
+        async with self.conn.execute('SELECT * FROM CLUSTER_LIST') as cursor:
+            rows = await cursor.fetchall()
+            columns = [desc[0] for desc in cursor.description]
+            result = [dict(zip(columns, row)) for row in rows]
+        await self.close()
+        return result
+
 database = Database()

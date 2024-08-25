@@ -13,6 +13,7 @@ import aiohttp
 from aiohttp import web
 import aiohttp.log
 from aiohttp.web import Request
+from aiohttp_cors import setup, ResourceOptions
 
 import core.const as const
 import core.utils as utils
@@ -44,6 +45,13 @@ sio = socketio.AsyncServer(async_mode='aiohttp')
 sio.attach(app)
 
 # 允许所有跨域请求
+cors = setup(app, defaults={
+    "*": ResourceOptions(
+        allow_credentials=True,
+        expose_headers="*",
+        allow_headers="*",
+    )
+})
 
 # IODINE @ HOME
 ## 定时执行
@@ -56,6 +64,7 @@ def reset_data():
     data["lastModified"] = int(time.time())
     data["bytes"] = 0
     data["hits"] = 0
+    data["nodes"] = {}
     logger.info("数据已经重置")
     datafile.write_json_to_file_noasync("daily.json", data)
 
@@ -90,7 +99,8 @@ async def fetch_status(request: Request):
 @routes.get("/api/rank")
 async def fetch_version(request: Request):
     data = await datafile.read_json_from_file("daily.json")
-    return utils.multi_node_privacy(data["nodes"])
+    result = utils.multi_node_privacy(utils.combine_and_sort_clusters(await database.get_clusters(), data["nodes"], online_cluster_list))
+    return web.json_response(result)
 
 # OpenBMCLAPI 部分
 ## 下发 challenge（有效时间: 5 分钟）
@@ -196,7 +206,7 @@ async def on_connect(sid, *args):
     cluster_is_exist = await cluster.initialize()
     if cluster_is_exist and cluster.secret == utils.decode_jwt(token)['cluster_secret']:
         await sio.save_session(sid, {"cluster_id": cluster.id, "cluster_secret": cluster.secret, "token": token})
-        logger.info(f"客户端 {sid} 连接成功（ID: {cluster.id}）")
+        logger.info(f"客户端 {sid} 连接成功（CLUSTER_ID: {cluster.id}）")
         await sio.emit("message", "欢迎使用 iodine@home，本项目已在 https://github.com/ZeroNexis/iodine-at-home 开源，期待您的贡献与支持。", sid)
     else:
         sio.disconnect(sid)
@@ -233,15 +243,15 @@ async def on_cluster_enable(sid, data, *args):
     if bandwidth[0] and bandwidth[1] >= 10:
         online_cluster_list.append(cluster.id)
         online_cluster_list_json.append(cluster.json())
-        logger.info(f"{sid} 上线（测量带宽: {bandwidth[1]} | ID: {session['cluster_id']}）")
+        logger.info(f"节点 {cluster.id} 上线（测量带宽: {bandwidth[1]}）")
         if cluster.trust < 0:
             await sio.emit("message", "节点信任度过低，请保持稳定在线。", sid)
         return [None, True]
     elif bandwidth[0] and bandwidth[1] < 10:
-        logger.info(f"{sid} 测速未通过（测量带宽: {bandwidth[1]}）")
+        logger.info(f"{cluster.id} 测速未通过（测量带宽: {bandwidth[1]}）")
         return [{"message": f"错误: 测量带宽小于 10Mbps，（测量得{bandwidth[1]}），请重试尝试上线"}]
     else:
-        logger.info(f"{sid} 测速未通过（测量带宽: {bandwidth[1]}）")
+        logger.info(f"{cluster.id} 测速未通过（测量带宽: {bandwidth[1]}）")
         return [{"message": f"错误: {bandwidth[1]}"}]
 
 ## 节点保活时
@@ -252,20 +262,30 @@ async def on_cluster_keep_alive(sid, data, *args):
     cluster_is_exist = await cluster.initialize()
     if cluster_is_exist == False or cluster.id not in online_cluster_list:
         return [None, False]
-    logger.info(f"{sid} 保活（请求数: {data['hits']} 次 | 请求数据量: {utils.hum_convert(data['bytes'])}）")
+    daily = await datafile.read_json_from_file("daily.json")
+    try:
+        daily["nodes"][cluster.id]["hits"] += data["hits"]
+        daily["nodes"][cluster.id]["bytes"] += data["bytes"]
+    except KeyError:
+        daily["nodes"][cluster.id] = {"hits": data["hits"], "bytes": data["bytes"]}
+    await datafile.write_json_to_file("daily.json", daily)
+    logger.info(f"节点 {cluster.id} 保活（请求数: {data['hits']} 次 | 请求数据量: {utils.hum_convert(data['bytes'])}）")
     return [None, datetime.now(timezone.utc).isoformat()]
 
 @sio.on('disable')  ## 节点禁用时
 async def on_cluster_disable(sid, *args):
     session = await sio.get_session(sid)
     cluster = Cluster(str(session['cluster_id']))
-    await cluster.initialize()
-    try:
-        online_cluster_list.remove(cluster.id)
-        online_cluster_list_json.remove(cluster.json())
-        logger.info(f"{sid} 禁用集群")
-    except ValueError:
-        logger.info(f"{sid} 尝试禁用集群失败（原因: 节点没有启用）")
+    cluster_is_exist = await cluster.initialize()
+    if cluster_is_exist == False:
+        logger.info("某节点尝试禁用集群失败（原因: 节点不存在）")
+    else:
+        try:
+            online_cluster_list.remove(cluster.id)
+            online_cluster_list_json.remove(cluster.json())
+            logger.info(f"节点 {cluster.id} 禁用集群")
+        except ValueError:
+            logger.info(f"节点 {cluster.id} 尝试禁用集群失败（原因: 节点没有启用）")
     return [None, True]
 
 
@@ -294,6 +314,7 @@ def init():
     utils.save_calculate_filelist()
     # aiohttp 初始化
     app.add_routes(routes)
+    cors.add(routes)
     try:
         scheduler.start()
         if settings.CERTIFICATES_STATUS == "true":

@@ -43,20 +43,20 @@ async def execute_command(command: str):
 
     # 如果解析失败，打印错误信息并返回 None
     if args is None:
-        logger.info("给出的指令无效，请重试。")
+        return "给出的指令无效，请重试。"
     else:
         # 根据命令执行相应操作
         if args.command == "ban":
             cluster = Cluster(args.id)
             if await cluster.initialize() != False:
                 await cluster.edit(isBanned=True, ban_reason=args.reason)
-                logger.info(f"节点 {args.id} 已被封禁，理由: {args.reason}")
+                return f"节点 {args.id} 已被封禁，理由: {args.reason}"
             else:
-                logger.warning("指令无效，需要封禁的节点并不存在。")
+                return "指令无效，需要封禁的节点并不存在。"
         elif args.command == 'unban':
             cluster = Cluster(args.id)
             if await cluster.initialize():
                 await cluster.edit(isBanned=False, ban_reason="")
-                logger.info(f"节点 {args.id} 已被解封。")
+                return f"节点 {args.id} 已被解封。"
             else:
-                logger.warning("指令无效，需要解封的节点并不存在。")
+                return "指令无效，需要解封的节点并不存在。"

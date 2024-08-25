@@ -245,3 +245,34 @@ def are_the_same_day(timestamp1, timestamp2):
 
     # 比较日期部分是否相同
     return dt1.date() == dt2.date()
+
+def combine_and_sort_clusters(clusters_info, clusters_traffic, online_nodes):
+    # 将所有节点的信息和流量数据合并
+    combined_clusters = []
+    for cluster_info in clusters_info:
+        cluster_id = cluster_info["CLUSTER_ID"]
+        traffic = clusters_traffic.get(cluster_id, {"hits": 0, "bytes": 0})
+        if cluster_id in online_nodes:
+            cluster_info["CLUSTER_ISENABLED"] = True
+        else:
+            cluster_info["CLUSTER_ISENABLED"] = False
+        if cluster_info["CLUSTER_ISBANNED"] == 1:
+            cluster_info["CLUSTER_ISBANNED"] = True
+        else:
+            cluster_info["CLUSTER_ISBANNED"] = False
+        cluster_info["CLUSTER_HITS"] = traffic["hits"]
+        cluster_info["CLUSTER_BYTES"] = traffic["bytes"]
+        combined_clusters.append(cluster_info)
+
+    # 根据流量 (bytes) 对在线节点进行排序
+    sorted_online = sorted([cluster for cluster in combined_clusters if cluster["CLUSTER_ID"] in online_nodes],
+                           key=lambda x: x["CLUSTER_BYTES"], reverse=True)
+
+    # 根据流量 (bytes) 对离线节点进行排序
+    sorted_offline = sorted([cluster for cluster in combined_clusters if cluster["CLUSTER_ID"] not in online_nodes],
+                            key=lambda x: x["CLUSTER_BYTES"], reverse=True)
+
+    # 合并两个排序好的列表
+    sorted_clusters = sorted_online + sorted_offline
+
+    return sorted_clusters
