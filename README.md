@@ -71,8 +71,7 @@ GIT_REPOSITORY_LIST = "https://github.com/Mxmilu666/bangbang93HUB"
 - [OpenBMCLAPI](https://github.com/bangbang93/openbmclapi) - 使用其 API 完成本项目与 OpenBMCLAPI 客户端的兼容。
 
 [**8Mi_Yile**](https://github.com/8MiYile)
-- 各种逆天言论，使 [bangbang93HUB](https://github.com/Mxmilu666/bangbang93HUB) 能持续更新至今。（使开发更加轻松、开心）
-- 推进 OpenBMCLAPI 节点 与 三大运营商 相关合作的开展。
+- 各种逆天言论，使 [bangbang93HUB](https://github.com/Mxmilu666/bangbang93HUB) 能持续更新至今，并给予我创建项目的灵感。
 
 [**SALTWOOD**](https://github.com/SALTWOOD)
 - [93@Home](https://github.com/SaltWood-Studio/Open93AtHome) - 提供了创建该项目的灵感及参考。
