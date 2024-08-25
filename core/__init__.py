@@ -50,7 +50,13 @@ cors = setup(app, defaults={
         allow_credentials=True,
         expose_headers="*",
         allow_headers="*",
-    )
+    ),
+    "/socket.io/": ResourceOptions(  # 明确指定 socket.io 不使用 CORS
+        allow_credentials=False,
+        expose_headers="*",
+        allow_headers="*",
+        max_age=3600,
+    ),
 })
 
 # IODINE @ HOME
@@ -313,9 +319,10 @@ def init():
     # 计算文件列表
     utils.save_calculate_filelist()
     # aiohttp 初始化
-    app.add_routes(routes)
+    app.router.add_routes(routes)
     for route in list(app.router.routes()):
-        cors.add(route)
+        if route.resource.canonical != "/socket.io/":
+            cors.add(route)
     try:
         scheduler.start()
         if settings.CERTIFICATES_STATUS == "true":
