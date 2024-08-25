@@ -313,7 +313,9 @@ def init():
     # 计算文件列表
     utils.save_calculate_filelist()
     # aiohttp 初始化
-    app.router.add_routes(routes)
+    app.add_routes(routes)
+    for route in list(app.router.routes()):
+        cors.add(route)
     try:
         scheduler.start()
         if settings.CERTIFICATES_STATUS == "true":
