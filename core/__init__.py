@@ -207,16 +207,16 @@ async def on_connect(sid, *args):
     token = re.search(token_pattern, str(args)).group(1)
     if token.isspace():
         sio.disconnect(sid)
-        logger.info(f"客户端 {sid} 连接失败（原因: 未提交 token 令牌）")
+        logger.debug(f"客户端 {sid} 连接失败（原因: 未提交 token 令牌）")
     cluster = Cluster(utils.decode_jwt(token)["cluster_id"])
     cluster_is_exist = await cluster.initialize()
     if cluster_is_exist and cluster.secret == utils.decode_jwt(token)['cluster_secret']:
         await sio.save_session(sid, {"cluster_id": cluster.id, "cluster_secret": cluster.secret, "token": token})
-        logger.info(f"客户端 {sid} 连接成功（CLUSTER_ID: {cluster.id}）")
+        logger.debug(f"客户端 {sid} 连接成功（CLUSTER_ID: {cluster.id}）")
         await sio.emit("message", "欢迎使用 iodine@home，本项目已在 https://github.com/ZeroNexis/iodine-at-home 开源，期待您的贡献与支持。", sid)
     else:
         sio.disconnect(sid)
-        logger.info(f"客户端 {sid} 连接失败（原因: 认证出错）")
+        logger.debug(f"客户端 {sid} 连接失败（原因: 认证出错）")
 
 ## 当节点端退出连接时
 @sio.on('disconnect')
@@ -226,9 +226,9 @@ async def on_disconnect(sid, *args):
     cluster_is_exist = await cluster.initialize()
     if cluster_is_exist and cluster.json() in online_cluster_list_json:
         online_cluster_list_json.remove(cluster.json())
-        logger.info(f"{sid} 异常断开连接，已从在线列表中删除")
+        logger.debug(f"{sid} 异常断开连接，已从在线列表中删除")
     else:
-        logger.info(f"客户端 {sid} 关闭了连接")
+        logger.debug(f"客户端 {sid} 关闭了连接")
 
 ## 节点启动时
 @sio.on('enable')
@@ -249,12 +249,12 @@ async def on_cluster_enable(sid, data, *args):
     if bandwidth[0] and bandwidth[1] >= 10:
         online_cluster_list.append(cluster.id)
         online_cluster_list_json.append(cluster.json())
-        logger.info(f"节点 {cluster.id} 上线（测量带宽: {bandwidth[1]}）")
+        logger.debug(f"节点 {cluster.id} 上线（测量带宽: {bandwidth[1]}）")
         if cluster.trust < 0:
             await sio.emit("message", "节点信任度过低，请保持稳定在线。", sid)
         return [None, True]
     elif bandwidth[0] and bandwidth[1] < 10:
-        logger.info(f"{cluster.id} 测速未通过（测量带宽: {bandwidth[1]}）")
+        logger.debug(f"{cluster.id} 测速未通过（测量带宽: {bandwidth[1]}）")
         return [{"message": f"错误: 测量带宽小于 10Mbps，（测量得{bandwidth[1]}），请重试尝试上线"}]
     else:
         logger.info(f"{cluster.id} 测速未通过（测量带宽: {bandwidth[1]}）")
@@ -275,7 +275,7 @@ async def on_cluster_keep_alive(sid, data, *args):
     except KeyError:
         daily["nodes"][cluster.id] = {"hits": data["hits"], "bytes": data["bytes"]}
     await datafile.write_json_to_file("daily.json", daily)
-    logger.info(f"节点 {cluster.id} 保活（请求数: {data['hits']} 次 | 请求数据量: {utils.hum_convert(data['bytes'])}）")
+    logger.debug(f"节点 {cluster.id} 保活（请求数: {data['hits']} 次 | 请求数据量: {utils.hum_convert(data['bytes'])}）")
     return [None, datetime.now(timezone.utc).isoformat()]
 
 @sio.on('disable')  ## 节点禁用时
@@ -284,14 +284,14 @@ async def on_cluster_disable(sid, *args):
     cluster = Cluster(str(session['cluster_id']))
     cluster_is_exist = await cluster.initialize()
     if cluster_is_exist == False:
-        logger.info("某节点尝试禁用集群失败（原因: 节点不存在）")
+        logger.debug("某节点尝试禁用集群失败（原因: 节点不存在）")
     else:
         try:
             online_cluster_list.remove(cluster.id)
             online_cluster_list_json.remove(cluster.json())
-            logger.info(f"节点 {cluster.id} 禁用集群")
+            logger.debug(f"节点 {cluster.id} 禁用集群")
         except ValueError:
-            logger.info(f"节点 {cluster.id} 尝试禁用集群失败（原因: 节点没有启用）")
+            logger.debug(f"节点 {cluster.id} 尝试禁用集群失败（原因: 节点没有启用）")
     return [None, True]
 
 
