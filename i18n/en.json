@@ -1,0 +1,3 @@
+{
+    "i18n.not_found": "The translation value corresponding to key ${name} was not found. Please check if the translation file is complete."
+}

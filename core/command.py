@@ -3,6 +3,7 @@ import argparse
 from core.types import Cluster
 from core.logger import logger
 
+
 def parse_command(command):
     # 创建 ArgumentParser 对象
     parser = argparse.ArgumentParser(description="对指令进行解析")
@@ -34,6 +35,7 @@ def parse_command(command):
     # 返回解析后的参数
     return args
 
+
 async def execute_command(command: str):
     # 提示用户输入命令
     command = command.lower()
@@ -53,7 +55,7 @@ async def execute_command(command: str):
                 return f"节点 {args.id} 已被封禁，理由: {args.reason}"
             else:
                 return "指令无效，需要封禁的节点并不存在。"
-        elif args.command == 'unban':
+        elif args.command == "unban":
             cluster = Cluster(args.id)
             if await cluster.initialize():
                 await cluster.edit(isBanned=False, ban_reason="")
