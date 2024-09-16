@@ -1,14 +1,17 @@
-from pathlib import Path
 import asyncio
 import aiosqlite
 from aiosqlite import Cursor
+from pathlib import Path
+import motor.motor_asyncio
 import core.datafile as datafile
-
+import core.settings as settings
 
 class Database:
-
     def __init__(self):
         self.conn = None
+
+    # def __init__(self, ):
+    #     self.client = motor.motor_asyncio.AsyncIOMotorClient(f"mongodb://{settings.MDB_USERNAME}:{settings.MDB_PASSWORD}@{settings.MDB_HOST}")
 
     async def connect(self):
         self.conn = await aiosqlite.connect("./data/database.db")

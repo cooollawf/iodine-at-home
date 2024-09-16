@@ -23,7 +23,7 @@ import core.datafile as datafile
 from core.database import database
 import core.command as command
 import core.settings as settings
-from core.upstream import git_repository
+from core.upstream import git_repository, mcim
 from core.types import Cluster, FileObject
 
 import logging
@@ -443,6 +443,7 @@ def init():
         if route.resource.canonical != "/socket.io/":
             cors.add(route)
     try:
+        mcim()
         scheduler.start()
         if settings.CERTIFICATES_STATUS == "true":
             logger.tinfo("init.info.running_with_cert")

@@ -1,7 +1,10 @@
 import os
-import httpx
+import json
+import aiohttp
 import hashlib
+import asyncio
 from pathlib import Path
+import core.datafile as datafile
 from core.types import FileObject
 from core.logger import logger
 
@@ -59,8 +62,36 @@ class git_repository:
 
 
 class mcim:
-    def __init__(self, url, directory: Path):
-        return 1
+    def __init__(self):
+        asyncio.run(self.get_filelist())
+    async def get_filelist(self):
+        url = "https://mod.mcimirror.top/file_cdn/list"
+        all_data = []
+        last_id = 0
+
+        filesizes = 0
+
+        async with aiohttp.ClientSession() as client:
+            while True:
+                params = {
+                    "last_id": last_id,
+                    "page_size": 9999
+                }
+                response = await client.get(url, params=params, timeout=1000)
+                data = await response.json()
+
+                if not data:
+                    break
+
+                all_data.extend(data)
+                last_id = data[-1]["_id"]  # 假设每条数据都有一个"id"字段
+                for i in data:
+                    filesizes += i["size"]
+            client.close()
+
+        await datafile.write_json_to_file('mcim.json', all_data)
+        logger.info(f"数据总数 {len(all_data)}")  # 打印获取到的数据总数
+        logger.info(f'占用空间 {filesizes}')
 
 
 # def main():
