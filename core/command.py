@@ -15,7 +15,9 @@ def parse_command(command):
     ban_parser = subparsers.add_parser("ban", help="封禁某个节点")
     ban_parser.add_argument("id", type=str, help="需要封禁的节点 ID")
     # ban_parser.add_argument("-t", "--time", type=int, default=24, help="封禁的持续时间（单位: 小时）")
-    ban_parser.add_argument("-r", "--reason", type=str, default="😡😡😡", help="封禁理由")
+    ban_parser.add_argument(
+        "-r", "--reason", type=str, default="😡😡😡", help="封禁理由"
+    )
 
     # 解封部分
     unban_parser = subparsers.add_parser("unban", help="解封某个节点")

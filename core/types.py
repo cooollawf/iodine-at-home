@@ -127,10 +127,14 @@ class Avro:
             shift += 7
         return (n >> 1) ^ -(n & 1)
 
-    def readString(self, maximun: Optional[int] = None, encoding: Optional[str] = None) -> str:
-        return self.read(self.readVarInt() if maximun is None else min(self.readVarInt(), max(maximun, 0))).decode(
-            encoding or self.encoding
-        )
+    def readString(
+        self, maximun: Optional[int] = None, encoding: Optional[str] = None
+    ) -> str:
+        return self.read(
+            self.readVarInt()
+            if maximun is None
+            else min(self.readVarInt(), max(maximun, 0))
+        ).decode(encoding or self.encoding)
 
     def readBytes(self, length: int) -> bytes:
         return self.read(length)

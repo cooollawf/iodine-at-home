@@ -1,4 +1,5 @@
 import os
+import httpx
 import hashlib
 from pathlib import Path
 from core.types import FileObject
@@ -44,7 +45,9 @@ class git_repository:
             directories[:] = [d for d in directories if not d.startswith(".")]
 
             for directory in directories:
-                file_list += git_repository.iterate_directory(root, os.path.join(current, directory))
+                file_list += git_repository.iterate_directory(
+                    root, os.path.join(current, directory)
+                )
             for file in files:
                 path = os.path.join(current, file)[len(root) :]
                 path = path.replace("\\", "/")
@@ -53,6 +56,11 @@ class git_repository:
                 file.path = path
                 file_list.append(file)
         return file_list
+
+
+class mcim:
+    def __init__(self, url, directory: Path):
+        return 1
 
 
 # def main():

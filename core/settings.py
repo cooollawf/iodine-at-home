@@ -19,7 +19,9 @@ if env_status == False:
     print("配置文件丢失，已创建一个空白文件。")
     with open(dotenvPath, "w") as cfgFile:
         cfgFile.write("")
-    print(f"空白文件新建成功，你应该将 .env.example 内所有内容复制进 .env 并修改后运行程序。")
+    print(
+        f"空白文件新建成功，你应该将 .env.example 内所有内容复制进 .env 并修改后运行程序。"
+    )
     sys.exit(0)
 
 # 读取配置文件信息
@@ -29,10 +31,21 @@ LANGUAGE = str(settings.get("LANGUAGE", "zh_cn"))
 HOST = str(settings.get("HOST", "0.0.0.0"))
 PORT = int(settings.get("PORT", 8080))
 ACCESS_LOG_CONTENT = settings.get("ACCESS_LOG", "true").lower()
+
+STORAGE_TYPE = str(settings.get("STORAGE_TYPE", "local"))
+
+ALIST_URL = str(settings.get("ALIST_URL", ""))
+ALIST_USERNAME = str(settings.get("ALIST_USERNAME", ""))
+ALIST_PASSWORD = str(settings.get("ALIST_PASSWORD", ""))
+
 JWT_SECRET = str(settings.get("JWT_SECRET", "114514"))
 TOKEN = str(settings.get("TOKEN", "123456"))
-GIT_REPOSITORY = settings.get("GIT_REPOSITORY_LIST", "https://github.com/Mxmilu666/bangbang93HUB")
+
+GIT_REPOSITORY = settings.get(
+    "GIT_REPOSITORY_LIST", "https://github.com/Mxmilu666/bangbang93HUB"
+)
 GIT_REPOSITORY_LIST = GIT_REPOSITORY.split(",")
+
 CERTIFICATES_STATUS = settings.get("CERTIFICATES", "False").lower()
 
 if ACCESS_LOG_CONTENT == "true":

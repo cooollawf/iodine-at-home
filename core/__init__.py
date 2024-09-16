@@ -66,7 +66,9 @@ cors = setup(
 # IODINE @ HOME
 ## 定时执行
 scheduler = BackgroundScheduler()
-scheduler.add_job(utils.save_calculate_filelist, "interval", minutes=5, id="refresh_filelist")
+scheduler.add_job(
+    utils.save_calculate_filelist, "interval", minutes=5, id="refresh_filelist"
+)
 
 
 ## 每天凌晨重置数据
@@ -125,7 +127,9 @@ async def fetch_status(request: Request):
 async def fetch_version(request: Request):
     data = await datafile.read_json_from_file("daily.json")
     result = utils.multi_node_privacy(
-        utils.combine_and_sort_clusters(await database.get_clusters(), data["nodes"], online_cluster_list)
+        utils.combine_and_sort_clusters(
+            await database.get_clusters(), data["nodes"], online_cluster_list
+        )
     )
     return web.json_response(result)
 
@@ -150,7 +154,10 @@ async def fetch_challenge(request: Request):
             }
         )
     elif cluster_is_exist and cluster.isBanned == True:
-        return web.Response(text=locale.t("response.403.node_is_banned", reason=cluster.ban_reason), status=403)
+        return web.Response(
+            text=locale.t("response.403.node_is_banned", reason=cluster.ban_reason),
+            status=403,
+        )
     else:
         return web.Response(text=locale.t("response.404.node_not_found"), status=404)
 
@@ -161,7 +168,10 @@ async def fetch_token(request: Request):
     content_type = request.content_type
     if "application/json" in content_type:
         data = await request.json()
-    elif "application/x-www-form-urlencoded" in content_type or "multipart/form-data" in content_type:
+    elif (
+        "application/x-www-form-urlencoded" in content_type
+        or "multipart/form-data" in content_type
+    ):
         data = await request.post()
     else:
         return web.Response(status=400, text="Unsupported media type")
@@ -180,7 +190,9 @@ async def fetch_token(request: Request):
         if str(h.hexdigest()) == signature:
             return web.json_response(
                 {
-                    "token": utils.encode_jwt({"cluster_id": clusterId, "cluster_secret": cluster.secret}),
+                    "token": utils.encode_jwt(
+                        {"cluster_id": clusterId, "cluster_secret": cluster.secret}
+                    ),
                     "ttl": 1000 * 60 * 60 * 24,
                 }
             )
@@ -243,10 +255,15 @@ async def fetch_report(request: Request):
     content_type = request.content_type
     if "application/json" in content_type:
         data = await request.json()
-    elif "application/x-www-form-urlencoded" in content_type or "multipart/form-data" in content_type:
+    elif (
+        "application/x-www-form-urlencoded" in content_type
+        or "multipart/form-data" in content_type
+    ):
         data = await request.post()
     else:
-        return web.Response(status=400, text=locale.t("response.400.unsupported_media_type"))
+        return web.Response(
+            status=400, text=locale.t("response.400.unsupported_media_type")
+        )
     urls = data.get("urls")
     error = data.get("error")
     logger.twarning("init.warning.received_report", urls=urls, error=error)
@@ -314,7 +331,11 @@ async def on_cluster_enable(sid, data, *args):
         runtime=data["flavor"]["runtime"],
     )
     if data["version"] != const.latest_version:
-        await sio.emit("message", locale.t("socketio.message.version_tips", version=const.latest_version), sid)
+        await sio.emit(
+            "message",
+            locale.t("socketio.message.version_tips", version=const.latest_version),
+            sid,
+        )
     time.sleep(1)
     bandwidth = await utils.measure_cluster(10, cluster.json())
     if bandwidth[0] and bandwidth[1] >= 10:
@@ -325,11 +346,23 @@ async def on_cluster_enable(sid, data, *args):
             await sio.emit("message", locale.t("socketio.message.trust_low"), sid)
         return [None, True]
     elif bandwidth[0] and bandwidth[1] < 10:
-        logger.tdebug("socketio.debug.measure_low", id=cluster.id, bandwidth=bandwidth[1])
-        return [{"message": locale.t("socketio.return.measure_low", bandwidth=bandwidth[1])}]
+        logger.tdebug(
+            "socketio.debug.measure_low", id=cluster.id, bandwidth=bandwidth[1]
+        )
+        return [
+            {"message": locale.t("socketio.return.measure_low", bandwidth=bandwidth[1])}
+        ]
     else:
-        logger.tdebug("socketio.debug.measure_error", id=cluster.id, bandwidth=bandwidth[1])
-        return [{"message": locale.t("socketio.debug.measure_error", bandwidth=bandwidth[1])}]
+        logger.tdebug(
+            "socketio.debug.measure_error", id=cluster.id, bandwidth=bandwidth[1]
+        )
+        return [
+            {
+                "message": locale.t(
+                    "socketio.debug.measure_error", bandwidth=bandwidth[1]
+                )
+            }
+        ]
 
 
 ## 节点保活时
@@ -348,7 +381,10 @@ async def on_cluster_keep_alive(sid, data, *args):
         daily["nodes"][cluster.id] = {"hits": data["hits"], "bytes": data["bytes"]}
     await datafile.write_json_to_file("daily.json", daily)
     logger.tdebug(
-        "socketio.debug.keep_alive_success", id=cluster.id, hits=data["hits"], bytes=utils.hum_convert(data["bytes"])
+        "socketio.debug.keep_alive_success",
+        id=cluster.id,
+        hits=data["hits"],
+        bytes=utils.hum_convert(data["bytes"]),
     )
     return [None, datetime.now(timezone.utc).isoformat()]
 
@@ -377,8 +413,11 @@ def init():
     # 检查文件夹是否存在
     dataFolder = Path("./data/")
     dataFolder.mkdir(parents=True, exist_ok=True)
-    fileFolder = Path("./files/")
-    fileFolder.mkdir(parents=True, exist_ok=True)
+    if settings.STORAGE_TYPE == "local":
+        fileFolder = Path("./files/")
+        fileFolder.mkdir(parents=True, exist_ok=True)
+    if settings.STORAGE_TYPE == 'alist':
+        from core.alist import alist
     # 检查每日数据
     dailyFile = Path("./files/daily.json")
     if dailyFile.exists == False:

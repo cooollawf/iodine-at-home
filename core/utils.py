@@ -206,7 +206,9 @@ async def check_cluster(url, file_path):
 
     # 发送请求并获取响应
     async with httpx.AsyncClient() as client:
-        response = await client.get(url, headers={"User-Agent": choice(const.user_agent_list)})
+        response = await client.get(
+            url, headers={"User-Agent": choice(const.user_agent_list)}
+        )
 
     # 计算响应内容的哈希值
     response_hash = compute_hash(response.raw)
@@ -256,7 +258,9 @@ def node_privacy(data):
 def multi_node_privacy(data) -> dict:
     result = []
     for item in data:
-        item_without_secrets = {k: v for k, v in item.items() if k not in const.hide_keys}
+        item_without_secrets = {
+            k: v for k, v in item.items() if k not in const.hide_keys
+        }
         result.append(item_without_secrets)
     return result
 
@@ -290,14 +294,22 @@ def combine_and_sort_clusters(clusters_info, clusters_traffic, online_nodes):
 
     # 根据流量 (bytes) 对在线节点进行排序
     sorted_online = sorted(
-        [cluster for cluster in combined_clusters if cluster["CLUSTER_ID"] in online_nodes],
+        [
+            cluster
+            for cluster in combined_clusters
+            if cluster["CLUSTER_ID"] in online_nodes
+        ],
         key=lambda x: x["CLUSTER_BYTES"],
         reverse=True,
     )
 
     # 根据流量 (bytes) 对离线节点进行排序
     sorted_offline = sorted(
-        [cluster for cluster in combined_clusters if cluster["CLUSTER_ID"] not in online_nodes],
+        [
+            cluster
+            for cluster in combined_clusters
+            if cluster["CLUSTER_ID"] not in online_nodes
+        ],
         key=lambda x: x["CLUSTER_BYTES"],
         reverse=True,
     )

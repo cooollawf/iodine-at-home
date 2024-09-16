@@ -1,4 +1,10 @@
+import core.settings as settings
+
 latest_version = "1.11.0"
+
+headers = {
+    "User-Agent": f"iodine-at-home/{settings.VERSION} (https://github.com/ZeroNexis/iodine-at-home)"
+}
 
 # 可用字符
 all_figures = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"]
@@ -158,7 +164,8 @@ user_agent_list = [
     "got",
     "Buy us a coffee",
     ## 群友们的 DICK 长度
-    "yanmo-disk/114514cm" "unify-dick/40cm",
+    "yanmo-disk/114514cm",
+    "unify-dick/40cm",
     "cooollawf-dick/15cm",
     "yangfan-dick/16cm",
     "cooollawf-lnspur/smart-114514",
