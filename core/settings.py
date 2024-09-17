@@ -35,6 +35,7 @@ ACCESS_LOG_CONTENT = settings.get("ACCESS_LOG", "true").lower()
 MDB_HOST = str(settings.get("MDB_HOST", ""))
 MDB_USERNAME = str(settings.get("MDB_USERNAME", ""))
 MDB_PASSWORD = str(settings.get("MDB_PASSWORD", ""))
+MDB_NAME = str(settings.get("MDB_NAME", ""))
 
 STORAGE_TYPE = str(settings.get("STORAGE_TYPE", "local"))
 

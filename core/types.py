@@ -15,14 +15,14 @@ class Cluster:
         self.id = id
 
     async def initialize(self):
-        if await database.query_cluster_data(self.id):
+        if await database.find_cluster(self.id)[0]:
             await self.update()
             return True
         else:
             return False
 
     async def update(self):
-        all_data = await database.query_cluster_data(self.id)
+        all_data = await database.find_cluster(self.id)[1]
         self.secret = str(all_data["CLUSTER_SECRET"])
         self.name = str(all_data["CLUSTER_NAME"])
         self.bandwidth = int(all_data["CLUSTER_BANDWIDTH"])

@@ -1,125 +1,73 @@
 import asyncio
-import aiosqlite
 from aiosqlite import Cursor
 from pathlib import Path
 import motor.motor_asyncio
 import core.datafile as datafile
 import core.settings as settings
 
+
 class Database:
-    def __init__(self):
-        self.conn = None
-
-    # def __init__(self, ):
-    #     self.client = motor.motor_asyncio.AsyncIOMotorClient(f"mongodb://{settings.MDB_USERNAME}:{settings.MDB_PASSWORD}@{settings.MDB_HOST}")
-
-    async def connect(self):
-        self.conn = await aiosqlite.connect("./data/database.db")
-        self.cursor = await self.conn.cursor()
+    def __init__(
+        self,
+        host: str,
+        db_name: str,
+        collection_name: str,
+        username=None,
+        password=None,
+    ):
+        uri = (
+            f"mongodb://{username}:{password or ''}@{host}/"
+            if username
+            else f"mongodb://{host}/"
+        )
+        self.client = motor.motor_asyncio.AsyncIOMotorClient(uri)
+        self.db = self.client[db_name]
+        self.collection_name = collection_name
 
     async def close(self):
-        await self.conn.close()
+        self.client.close()
 
-    async def create_table(self):
-        await self.connect()
-        await self.conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS CLUSTER_LIST
-            (
-                CLUSTER_NAME TEXT,
-                CLUSTER_ID TEXT PRIMARY KEY,
-                CLUSTER_SECRET TEXT,
-                CLUSTER_BANDWIDTH INTEGER,
-                CLUSTER_TRUST INTEGER,
-                CLUSTER_ISBANNED BOOLEAN,
-                CLUSTER_BANREASON TEXT,
-                CLUSTER_HOST TEXT,
-                CLUSTER_PORT INTEGER,
-                CLUSTER_VERSION TEXT,
-                CLUSTER_RUNTIME TEXT
-            )
-        """
-        )
-        await self.conn.commit()
-        await self.close()
+    async def collection(self, collection_name: str):
+        return self.db[collection_name]
+
+    async def insert_one(self, cluster_data: dict):
+        collection = await self.collection(self.collection_name)
+        result = await collection.insert_one(cluster_data)
+        return result.inserted_id
 
     async def create_cluster(
         self,
-        name: str,
-        id: str,
-        secret: str,
-        bandwidth: int,
-        trust: int = 0,
-        isBanned: bool = False,
-        banreason: str = "",
-        host: str = "",
-        port: int = 80,
-        version: str = "",
-        runtime: str = "",
+        name: str = None,
+        secret: str = None,
+        bandwidth: int = None,
     ):
-        await self.connect()
-        await self.conn.execute(
-            """
-            INSERT INTO CLUSTER_LIST (
-                CLUSTER_NAME,
-                CLUSTER_ID,
-                CLUSTER_SECRET,
-                CLUSTER_BANDWIDTH,
-                CLUSTER_TRUST,
-                CLUSTER_ISBANNED,
-                CLUSTER_BANREASON,
-                CLUSTER_HOST,
-                CLUSTER_PORT,
-                CLUSTER_VERSION,
-                CLUSTER_RUNTIME
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-            (
-                name,
-                id,
-                secret,
-                bandwidth,
-                trust,
-                isBanned,
-                banreason,
-                host,
-                port,
-                version,
-                runtime,
-            ),
+        return await self.insert_one(
+            {
+                "name": name,
+                "secret": secret,
+                "bandwidth": bandwidth,
+            }
         )
-        await self.conn.commit()
-        await self.close()
-        return True
 
     async def delete_cluster(self, id: str):
-        await self.connect()
-        await self.conn.execute(
-            """
-            DELETE FROM CLUSTER_LIST WHERE CLUSTER_ID = ?
-        """,
-            (id,),
-        )
-        await self.conn.commit()
-        await self.close()
-        return True
+        collection = await self.collection(self.collection_name)
+        await collection.delete_one({"_id": id})
 
-    async def query_cluster_data(self, id: str):
-        await self.connect()
-        async with self.conn.execute(
-            """
-            SELECT * FROM CLUSTER_LIST WHERE CLUSTER_ID = ?
-        """,
-            (id,),
-        ) as cursor:
-            row = await cursor.fetchone()
-            if row:
-                columns = [desc[0] for desc in cursor.description]
-                result = dict(zip(columns, row))
-            else:
-                result = False
-        await self.close()
-        return result
+    async def find_cluster(self, id: str):
+        collection = await self.collection(self.collection_name)
+        result = await collection.find_one({"_id": id})
+        if result:
+            return [True,result]
+        return [False,None]
+
+    async def update_cluster(self, id: str, update_data: dict):
+        collection = await self.collection(self.collection_name)
+        await collection.update_one({"_id": id}, {"$set": update_data})
+
+    async def get_clusters(self):
+        collection = await self.collection(self.collection_name)
+        cursor = collection.find()
+        return [doc async for doc in cursor]
 
     async def edit_cluster(
         self,
@@ -135,56 +83,32 @@ class Database:
         version: str = None,
         runtime: str = None,
     ):
-        if await self.query_cluster_data(id) != False:
-            await self.connect()
-            update_data = {}
-            if name is not None:
-                update_data["CLUSTER_NAME"] = name
-            if secret is not None:
-                update_data["CLUSTER_SECRET"] = secret
-            if bandwidth is not None:
-                update_data["CLUSTER_BANDWIDTH"] = bandwidth
-            if trust is not None:
-                update_data["CLUSTER_TRUST"] = trust
-            if isBanned is not None:
-                update_data["CLUSTER_ISBANNED"] = isBanned
-            if ban_reason is not None:
-                update_data["CLUSTER_BANREASON"] = ban_reason
-            if host is not None:
-                update_data["CLUSTER_HOST"] = host
-            if port is not None:
-                update_data["CLUSTER_PORT"] = port
-            if version is not None:
-                update_data["CLUSTER_VERSION"] = version
-            if runtime is not None:
-                update_data["CLUSTER_RUNTIME"] = runtime
-
-            # 构建更新语句
-            set_clause = ", ".join([f"{key} = ?" for key in update_data.keys()])
-            values = list(update_data.values()) + [id]
-            query = f"""
-                UPDATE CLUSTER_LIST
-                SET {set_clause}
-                WHERE CLUSTER_ID = ?
-            """
-
-            # 执行更新
-            await self.conn.execute(query, values)
-            await self.conn.commit()
-            result = True
-        else:
-            result = False
-        await self.close()
-        return result
-
-    async def get_clusters(self):
-        await self.connect()
-        async with self.conn.execute("SELECT * FROM CLUSTER_LIST") as cursor:
-            rows = await cursor.fetchall()
-            columns = [desc[0] for desc in cursor.description]
-            result = [dict(zip(columns, row)) for row in rows]
-        await self.close()
-        return result
+        result = await self.db.clusters.update_one(
+            {"_id": id},
+            {
+                "$set": {
+                    "name": name,
+                    "secret": secret,
+                    "bandwidth": bandwidth,
+                    "trust": trust,
+                    "isBanned": isBanned,
+                    "ban_reason": ban_reason,
+                    "host": host,
+                    "port": port,
+                    "version": version,
+                    "runtime": runtime,
+                }
+            },
+        )
+        if result.modified_count == 1:
+            return True
+        return False
 
 
-database = Database()
+database = Database(
+    settings.MDB_HOST,
+    settings.MDB_NAME,
+    "clusters",
+    settings.MDB_USERNAME,
+    settings.MDB_PASSWORD,
+)

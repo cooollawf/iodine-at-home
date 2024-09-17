@@ -124,7 +124,7 @@ def save_calculate_filelist():
     result = pyzstd.compress(avro.io.getvalue())
     avro.io.close()
     datafile.write_filelist_to_cache_noasync("filelist.avro", result)
-    logger.tinfo("utils.info.calculate_filelist")
+    logger.info("文件列表计算成功，已保存至本地。")
     return result
 
 

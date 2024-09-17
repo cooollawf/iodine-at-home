@@ -18,7 +18,7 @@ class git_repository:
 
     # 下载文件
     def fetch(self) -> None:
-        logger.tinfo("upstream.info.fetch_git_repo", url=self.url)
+        logger.info(f"正在同步 {self.url} 远程仓库")
         # 检查目录是否存在，不存在则创建
         try:
             if not os.path.exists(self.directory):
@@ -30,7 +30,7 @@ class git_repository:
                 os.chdir(self.directory)
                 result = os.system("git pull")
                 os.chdir(current_dir)
-            logger.tinfo("upstream.info.fetch_git_repo_success", url=self.url)
+            logger.info(f"远程仓库 {self.url} 同步完成")
             return result
         except Exception as e:
             ...  # 记录异常信息

@@ -17,7 +17,6 @@ from aiohttp_cors import setup, ResourceOptions
 
 import core.const as const
 import core.utils as utils
-from core.i18n import locale
 from core.logger import logger
 import core.datafile as datafile
 from core.database import database
@@ -78,7 +77,7 @@ def reset_data():
     data["bytes"] = 0
     data["hits"] = 0
     data["nodes"] = {}
-    logger.tinfo("init.info.reset_data")
+    logger.info("已重置数据。")
     datafile.write_json_to_file_noasync("daily.json", data)
 
 
@@ -91,20 +90,19 @@ async def fetch_create_cluster(
     request: Request,
     token: str | None,
     name: str | None,
-    id: str | None,
     secret: str | None,
     bandwidth: str | None,
 ):
     if token != settings.TOKEN:
-        return web.Response(locale.t("response.401.no_permission"), 401)
-    return await database.create_cluster(name, id, secret, bandwidth)
+        return web.Response("没有权限", 401)
+    return await database.create_cluster(name, secret, bandwidth)
 
 
 ## 删除节点
 @routes.get("/api/node/delete")
 async def fetch_delete_cluster(request: Request, token: str | None, id: str | None):
     if token != settings.TOKEN:
-        return web.Response(locale.t("response.401.no_permission"), 401)
+        return web.Response("没有权限", 401)
     return await database.delete_cluster(id)
 
 
@@ -155,11 +153,11 @@ async def fetch_challenge(request: Request):
         )
     elif cluster_is_exist and cluster.isBanned == True:
         return web.Response(
-            text=locale.t("response.403.node_is_banned", reason=cluster.ban_reason),
+            text=f"节点被封禁，原因: {cluster.ban_reason}",
             status=403,
         )
     else:
-        return web.Response(text=locale.t("response.404.node_not_found"), status=404)
+        return web.Response(text="未找到节点", status=404)
 
 
 ## 下发令牌（有效日期: 1 天）
@@ -197,15 +195,15 @@ async def fetch_token(request: Request):
                 }
             )
         else:
-            return web.Response(text=locale.t("response.401.no_auth"), status=401)
+            return web.Response(text="没有授权", status=401)
     else:
-        return web.Response(text=locale.t("response.401.no_auth"), status=401)
+        return web.Response(text="没有授权", status=401)
 
 
 ## 建议同步参数
 @routes.get("/openbmclapi/configuration")
 def fetch_configuration(request: Request):
-    return web.json_response({"sync": {"source": "center", "concurrency": 100}})
+    return web.json_response({"sync": {"source": "center", "concurrency": 1024}})
 
 
 ## 文件列表
@@ -246,7 +244,7 @@ async def download_file_from_ctrl(request: Request, hash: str):
         path = filelist[hash]["path"]
         return web.FileResponse(Path(f".{path}"))
     except ValueError:
-        return web.Response(text=locale.t("response.404.not_found"), status=404)
+        return web.Response(text="未找到文件", status=404)
 
 
 ## 举报
@@ -262,11 +260,11 @@ async def fetch_report(request: Request):
         data = await request.post()
     else:
         return web.Response(
-            status=400, text=locale.t("response.400.unsupported_media_type")
+            status=400, text="不支持的媒体类型"
         )
     urls = data.get("urls")
     error = data.get("error")
-    logger.twarning("init.warning.received_report", urls=urls, error=error)
+    logger.warning(f"收到举报, 重定向记录: {urls}，错误信息: {error}")
     return web.Response(status=200)
 
 
@@ -277,7 +275,7 @@ async def on_connect(sid, *args):
     token = re.search(token_pattern, str(args)).group(1)
     if token.isspace():
         sio.disconnect(sid)
-        logger.tdebug("socketio.debug.connect_failed_token", sid=sid)
+        logger.debug(f"客户端 {sid} 连接失败（原因: 未提交 token 令牌）")
     cluster = Cluster(utils.decode_jwt(token)["cluster_id"])
     cluster_is_exist = await cluster.initialize()
     if cluster_is_exist and cluster.secret == utils.decode_jwt(token)["cluster_secret"]:
@@ -292,12 +290,12 @@ async def on_connect(sid, *args):
         logger.debug(f"客户端 {sid} 连接成功（CLUSTER_ID: {cluster.id}）")
         await sio.emit(
             "message",
-            locale.t("socketio.message.welcome"),
+            "欢迎使用 iodine@home，本项目已在 https://github.com/ZeroNexis/iodine-at-home 开源，期待您的贡献与支持。",
             sid,
         )
     else:
         sio.disconnect(sid)
-        logger.tdebug("socketio.debug.connect_failed_authentication", sid=sid)
+        logger.debug(f"客户端 {sid} 连接失败（原因: 认证出错）")
 
 
 ## 当节点端退出连接时
@@ -308,9 +306,9 @@ async def on_disconnect(sid, *args):
     cluster_is_exist = await cluster.initialize()
     if cluster_is_exist and cluster.json() in online_cluster_list_json:
         online_cluster_list_json.remove(cluster.json())
-        logger.tdebug("socketio.debug.abnormal_disconnect", sid=sid)
+        logger.debug(f"{sid} 异常断开连接，已从在线列表中删除")
     else:
-        logger.tdebug("socketio.debug.disconnect", sid=sid)
+        logger.debug(f"客户端 {sid} 断开了连接")
 
 
 ## 节点启动时
@@ -320,9 +318,9 @@ async def on_cluster_enable(sid, data, *args):
     cluster = Cluster(str(session["cluster_id"]))
     cluster_is_exist = await cluster.initialize()
     if cluster_is_exist == False:
-        return [{"message": locale.t("socketio.return.node_not_found")}]
+        return [{"message": "错误: 节点似乎并不存在，请检查配置文件"}]
     if str(cluster.id) in online_cluster_list == True:
-        return [{"message": locale.t("socketio.return.node_is_online")}]
+        return [{"message": "错误: 节点已经在线，请检查配置文件"}]
     host = data.get("host", session.get("ip"))
     await cluster.edit(
         host=host,
@@ -333,7 +331,7 @@ async def on_cluster_enable(sid, data, *args):
     if data["version"] != const.latest_version:
         await sio.emit(
             "message",
-            locale.t("socketio.message.version_tips", version=const.latest_version),
+            f"当前版本已过时，推荐升级到 v{const.latest_version} 或以上版本。",
             sid,
         )
     time.sleep(1)
@@ -341,26 +339,20 @@ async def on_cluster_enable(sid, data, *args):
     if bandwidth[0] and bandwidth[1] >= 10:
         online_cluster_list.append(cluster.id)
         online_cluster_list_json.append(cluster.json())
-        logger.tdebug("socketio.debug.enable", id=cluster.id, bandwidth=bandwidth[1])
+        logger.debug(f"节点 {cluster.id} 上线（测量带宽: {bandwidth[1]}）")
         if cluster.trust < 0:
-            await sio.emit("message", locale.t("socketio.message.trust_low"), sid)
+            await sio.emit("message", "节点信任度过低，请保持稳定在线。", sid)
         return [None, True]
     elif bandwidth[0] and bandwidth[1] < 10:
-        logger.tdebug(
-            "socketio.debug.measure_low", id=cluster.id, bandwidth=bandwidth[1]
-        )
+        logger.debug(f"{cluster.id} 测速未通过（测量带宽: {bandwidth[1]}）")
         return [
-            {"message": locale.t("socketio.return.measure_low", bandwidth=bandwidth[1])}
+            {"message": f"错误: 测量带宽小于 10Mbps，（测量得 {bandwidth[1]}），请重试尝试上线"}
         ]
     else:
-        logger.tdebug(
-            "socketio.debug.measure_error", id=cluster.id, bandwidth=bandwidth[1]
-        )
+        logger.debug(f"{cluster.id} 测速未通过（错误: {bandwidth[1]}）")
         return [
             {
-                "message": locale.t(
-                    "socketio.debug.measure_error", bandwidth=bandwidth[1]
-                )
+                "message": f"错误: {bandwidth[1]}"
             }
         ]
 
@@ -380,11 +372,8 @@ async def on_cluster_keep_alive(sid, data, *args):
     except KeyError:
         daily["nodes"][cluster.id] = {"hits": data["hits"], "bytes": data["bytes"]}
     await datafile.write_json_to_file("daily.json", daily)
-    logger.tdebug(
-        "socketio.debug.keep_alive_success",
-        id=cluster.id,
-        hits=data["hits"],
-        bytes=utils.hum_convert(data["bytes"]),
+    logger.debug(
+        f"节点 {cluster.id} 保活（请求数: {data["hits"]} 次 | 请求数据量: {utils.hum_convert(data['bytes'])}）"
     )
     return [None, datetime.now(timezone.utc).isoformat()]
 
@@ -395,28 +384,27 @@ async def on_cluster_disable(sid, *args):
     cluster = Cluster(str(session["cluster_id"]))
     cluster_is_exist = await cluster.initialize()
     if cluster_is_exist == False:
-        logger.tdebug("socketio.debug.disable_failed_not_found")
+        logger.debug("某节点尝试禁用集群失败（原因: 节点不存在）")
     else:
         try:
             online_cluster_list.remove(cluster.id)
             online_cluster_list_json.remove(cluster.json())
-            logger.tdebug("socketio.debug.disable_success", id=cluster.id)
+            logger.debug(f"节点 {cluster.id} 禁用集群")
         except ValueError:
-            logger.tdebug("socketio.debug.disable_failed_not_online", id=cluster.id)
+            logger.debug(f"节点 {cluster.id} 尝试禁用集群失败（原因: 节点没有启用）")
     return [None, True]
 
 
 # 运行主程序
 def init():
-    logger.tinfo("init.info.checking")
-    asyncio.run(database.create_table())
+    logger.info("正在进行运行前检查...")
     # 检查文件夹是否存在
     dataFolder = Path("./data/")
     dataFolder.mkdir(parents=True, exist_ok=True)
     if settings.STORAGE_TYPE == "local":
         fileFolder = Path("./files/")
         fileFolder.mkdir(parents=True, exist_ok=True)
-    if settings.STORAGE_TYPE == 'alist':
+    if settings.STORAGE_TYPE == "alist":
         from core.alist import alist
     # 检查每日数据
     dailyFile = Path("./files/daily.json")
@@ -435,6 +423,8 @@ def init():
             minutes=5,
             id=f"fetch_{name}",
         )
+    # ----------------------------------------------
+    # ----------------------------------------------
     # 计算文件列表
     utils.save_calculate_filelist()
     # aiohttp 初始化
@@ -443,11 +433,11 @@ def init():
         if route.resource.canonical != "/socket.io/":
             cors.add(route)
     try:
-        mcim()
+        # mcim()
         scheduler.start()
         if settings.CERTIFICATES_STATUS == "true":
-            logger.tinfo("init.info.running_with_cert")
-            logger.tinfo("init.info.service_port", port=settings.PORT)
+            logger.info("使用证书启动主控中...")
+            logger.info(f"正在端口 {settings.PORT} 上监听服务器。")
             web.run_app(
                 app,
                 host=settings.HOST,
@@ -456,9 +446,9 @@ def init():
                 print=None,
             )
         else:
-            logger.tinfo("init.info.running_without_cert")
-            logger.tinfo("init.info.service_port", port=settings.PORT)
-            web.run_app(app, host=settings.HOST, port=settings.PORT, print=None)
+            logger.info("使用普通模式启动主控中...")
+            logger.info(f"正在端口 {settings.PORT} 上监听服务器。")
+            web.run_app(app, host=settings.HOST, port=settings.PORT)
     except KeyboardInterrupt:
         scheduler.shutdown()
-        logger.tinfo("init.info.stoped")
+        logger.info("主控已经停止运行。")
