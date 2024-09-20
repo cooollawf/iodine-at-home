@@ -1,0 +1,14 @@
+host: 0.0.0.0
+port: 52093
+
+jwt-secret: "mxmilu666 is the best developer in the world"
+
+mongodb:
+  url: 10.144.243.122:27017
+  db_name: "iodine-at-home"
+  username: "admin"
+  password: "xjh110603"
+git_repo:
+  url: https://github.5k.work/mxmilu666/bangbang93hub.git
+  branch: master
+download_path: './93hub'

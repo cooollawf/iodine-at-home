@@ -1,4 +1,3 @@
 {
     "python.analysis.typeCheckingMode": "off",
-    "python.languageServer": "Pylance"
 }
