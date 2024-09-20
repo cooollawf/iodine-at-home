@@ -1,3 +1,0 @@
-files:
-  - source: /i18n/zh_cn.json
-    translation: /i18n/%two_letters_code%.json
