@@ -1,8 +1,16 @@
 # 第三方库
 import motor.motor_asyncio
+from bson.objectid import ObjectId
 
-# 自定义库
+# 本地库
 from core.config import config
+
+
+def to_objectId(id: str):
+    try:
+        return ObjectId(id)
+    except Exception:
+        return None
 
 
 class Database:
@@ -29,13 +37,15 @@ class Database:
     async def collection(self, collection_name: str):
         return self.db[collection_name]
 
-    async def insert_one(self, cluster_data: dict):
+    async def insert_one(self, data: dict):
         collection = await self.collection(self.collection_name)
-        result = await collection.insert_one(cluster_data)
+        result = await collection.insert_one(data)
         return result.inserted_id
+
     async def find_one(self, query: dict):
         collection = await self.collection(self.collection_name)
         return await collection.find_one(query)
+
     async def create_cluster(
         self,
         name: str = None,
@@ -52,16 +62,16 @@ class Database:
 
     async def delete_cluster(self, id: str):
         collection = await self.collection(self.collection_name)
-        await collection.delete_one({"_id": id})
+        await collection.delete_one({"_id": to_objectId(id)})
 
     async def find_cluster(self, id: str):
         collection = await self.collection(self.collection_name)
-        result = await collection.find_one({"_id": id})
+        result = await collection.find_one({"_id": to_objectId(id)})
         if result:
             return [True, result]
         return [False, None]
 
-    async def get_clusters(self):
+    async def get_all(self):
         collection = await self.collection(self.collection_name)
         cursor = collection.find()
         return [doc async for doc in cursor]
@@ -80,22 +90,23 @@ class Database:
         version: str = None,
         runtime: str = None,
     ):
+        data = {
+            "name": name,
+            "secret": secret,
+            "bandwidth": bandwidth,
+            "trust": trust,
+            "isBanned": isBanned,
+            "ban_reason": ban_reason,
+            "host": host,
+            "port": port,
+            "version": version,
+            "runtime": runtime,
+        }
+        valid_update_data = {k: v for k, v in data.items() if v is not None}
         result = await self.db.clusters.update_one(
-            {"_id": id},
-            {
-                "$set": {
-                    "name": name,
-                    "secret": secret,
-                    "bandwidth": bandwidth,
-                    "trust": trust,
-                    "isBanned": isBanned,
-                    "ban_reason": ban_reason,
-                    "host": host,
-                    "port": port,
-                    "version": version,
-                    "runtime": runtime,
-                }
-            },
+            {"_id": to_objectId(id)},
+            {"$set": valid_update_data},
+            upsert=True,
         )
         if result.modified_count == 1:
             return True

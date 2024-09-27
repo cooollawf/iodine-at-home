@@ -7,7 +7,6 @@ from core.mdb import cdb
 class Cluster:
     def __init__(self, cluster_id: str):
         self.id = cluster_id
-        asyncio.run(self.initialize())
 
     async def initialize(self):
         data = await cdb.find_cluster(self.id)
@@ -15,6 +14,9 @@ class Cluster:
             self.name = data[1]["name"]
             self.secret = data[1]["secret"]
             self.bandwidth = data[1]["bandwidth"]
+            return True
+        else:
+            return False
 
 
 # 本段修改自 TTB-Network/python-openbmclapi 中部分代码

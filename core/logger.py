@@ -3,9 +3,9 @@ from pathlib import Path
 from loguru import logger as Logger
 
 basic_logger_format = (
-    "<green>[{time:HH:mm:ss}]</green><level>[{level}]: {message}</level>"
+    "<green>[{time:HH:mm:ss}]</green><level>[{level}] {message}</level>"
 )
-# basic_logger_format = "<green>[{time:YYYY-MM-DD HH:mm:ss}]</green> <level>[{level}]<yellow>[{name}:{function}:{line}]</yellow>: {message}</level>"
+logfile_logger_format = "<green>[{time:YYYY-MM-DD HH:mm:ss}]</green> <level>[{level}]<yellow>[{name}:{function}:{line}]</yellow>: {message}</level>"
 
 
 class LoggingLogger:
@@ -19,7 +19,7 @@ class LoggingLogger:
         self.cur_handler = None
         self.log.add(
             Path("./logs/{time:YYYY-MM-DD}.log"),
-            format=basic_logger_format,
+            format=logfile_logger_format,
             retention="10 days",
             encoding="utf-8",
         )

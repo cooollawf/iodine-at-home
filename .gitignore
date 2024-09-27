@@ -162,6 +162,7 @@ cython_debug/
 .idea/
 
 # iodine-at-home
-/data
-/files
-/config.yml
+config.yml
+data/
+files/
+plugins/
