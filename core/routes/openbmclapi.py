@@ -5,9 +5,9 @@ from fastapi import APIRouter, Request, HTTPException, Response
 from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
 
 # 本地库
-from core.mdb import fdb
 from core.types import Avro
 from core.logger import logger
+from core.filesdb import filesdb
 
 
 app = APIRouter()
@@ -22,15 +22,15 @@ def get_configuration(response: Response):
 @app.get("/files", summary="文件列表", tags=["nodes"])
 async def get_filesList():
     logger.info("收到请求")
-    filelist = await fdb.get_all()
+    filelist = await filesdb.get_all()
     logger.info("获取文件列表成功")
     avro = Avro()
     avro.writeVarInt(len(filelist))  # 写入文件数量
     for file in filelist:
-        avro.writeString(f"{file['source']}//{file['hash']}")  # 路径
-        avro.writeString(file['hash'])  # 哈希
-        avro.writeVarInt(file['size'])  # 文件大小
-        avro.writeVarInt(file['mtime'])  # 修改时间
+        avro.writeString(f"{file['SOURCE']}//{file['HASH']}")  # 路径
+        avro.writeString(file['HASH'])  # 哈希
+        avro.writeVarInt(file['SIZE'])  # 文件大小
+        avro.writeVarInt(file['MTIME'])  # 修改时间
     avro.write(b"\x00")
     result = pyzstd.compress(avro.io.getvalue())
     avro.io.close()

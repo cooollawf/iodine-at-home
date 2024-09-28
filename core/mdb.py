@@ -120,11 +120,3 @@ cdb = Database(
     config.get("mongodb.username"),
     config.get("mongodb.password"),
 )
-
-fdb = Database(
-    config.get("mongodb.url"),
-    config.get("mongodb.db_name"),
-    "files",
-    config.get("mongodb.username"),
-    config.get("mongodb.password"),
-)

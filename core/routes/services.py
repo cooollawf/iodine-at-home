@@ -5,14 +5,14 @@ from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, Red
 
 # 本地库
 from core.logger import logger
-from core.mdb import fdb
+from core.filesdb import filesdb
 
 app = APIRouter()
 
 @app.get("/files/{path}", summary="下载普通文件", tags=["public"])
 
 async def download_file(path: str):
-    filedata = await fdb.find_one({"hash": path})
+    filedata = await filesdb.find_one(path)
     if filedata:
         return RedirectResponse(filedata["path"], 302)
     else:

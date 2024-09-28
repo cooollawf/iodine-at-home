@@ -17,6 +17,7 @@ import core.utils as utils
 from core.logger import logger
 from core.config import config
 from core.types import Cluster
+from core.filesdb import filesdb
 
 # 路由库
 from core.routes.agent import app as agent_router
@@ -121,6 +122,7 @@ async def on_disconnect(sid, *args):
 
 
 def init():
+    # asyncio.run(filesdb.delete_all())
     try:
         asyncio.run(load_plugins())
         app.mount("/", socket)

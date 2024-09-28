@@ -1,6 +1,5 @@
 from git.repo import Repo
 from core.config import config
-from core.mdb import fdb
 import os
 import hashlib
 download_path = os.path.join(config.get('download_path'))
@@ -30,6 +29,6 @@ async def get_file_hash(file_path):
             hash_md5.update(chunk)
     return hash_md5.hexdigest()
 
-async def write_to_db():
-    for i in file_list:
-        await fdb.file.insert_one(i)
+# async def write_to_db():
+#     for i in file_list:
+#         await fdb.file.insert_one(i)
