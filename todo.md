@@ -1,3 +1,4 @@
 ## 待办清单
-- [ ] refactor: 改用 MongoDB
-- [ ] feat: 增加插件 API 
+- [ ] refactor: 重构所有代码（正在进行中...）
+- [ ] feat: 支持分片功能
+- [ ] feat: 增加插件 API
