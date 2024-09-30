@@ -24,6 +24,16 @@ def decode_jwt(data, secret: str | None = config.get("jwt-secret")):
     return result
 
 
+def hum_convert(value: int):
+    units = ["B", "KiB", "MiB", "GiB", "TiB", "PiB"]
+    size = value
+    for unit in units:
+        if (size / 1024) < 1:
+            return "%.2f%s" % (size, unit)
+        size = size / 1024
+    return f"{value:.2f}"
+
+
 def to_url_safe_base64_string(byte_data):
     return base64.urlsafe_b64encode(byte_data).rstrip(b"=").decode("utf-8")
 
@@ -72,7 +82,7 @@ async def measure_cluster(size: int, cluster):
     try:
         start_time = time.time()
         async with aiohttp.ClientSession() as client:
-            response = await client.get(url, headers={"User-Agent": "iodine-ctrl"})
+            response = await client.get(url, headers={"User-Agent": const.user_agent})
         end_time = time.time()
         elapsed_time = end_time - start_time
         # 计算测速时间

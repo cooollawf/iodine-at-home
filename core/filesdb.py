@@ -13,15 +13,13 @@ class FilesDB:
     #     self.client = motor.motor_asyncio.AsyncIOMotorClient(f"mongodb://{settings.MDB_USERNAME}:{settings.MDB_PASSWORD}@{settings.MDB_HOST}")
 
     async def connect(self):
-        if self.conn is None:
-            self.conn = await aiosqlite.connect("./data/filelist.db")
-            self.cursor = await self.conn.cursor()
+        self.conn = await aiosqlite.connect("./data/database.db")
+        self.cursor = await self.conn.cursor()
 
     async def close(self):
-        if self.conn:
-            await self.conn.close()
-            self.conn = None
-            self.cursor = None
+        await self.conn.close()
+        self.conn = None
+        self.cursor = None
 
     async def create_table(self):
         await self.connect()

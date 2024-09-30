@@ -61,7 +61,7 @@ async def post_token(request: Request):
         challenge
     )["exp"] > int(time.time()):
         if str(h.hexdigest()) == signature:
-            ttl = 60 * 60 * 24
+            ttl = 60 * 60 * 24 * 1000
             return JSONResponse(
                 {
                     "token": utils.encode_jwt(
@@ -69,6 +69,7 @@ async def post_token(request: Request):
                             "cluster_id": clusterId,
                             "cluster_secret": cluster.secret,
                             "iss": const.jwt_iss,
+                            "exp": int(time.time()) + ttl,
                         }
                     ),
                     "ttl": ttl,

@@ -1,7 +1,9 @@
+latest_version = "1.12.1"
+user_agent = "iodine-ctrl/2.0.0"
 jwt_iss = "iodine@home"
 
 # 随机 User-Agent 列表
-user_agent_list = [
+top_ua_list = [
     "Mozilla/4.0(compatible;MSIE7.0;WindowsNT5.1;AvantBrowser)",
     "Mozilla/4.0(compatible;MSIE7.0;WindowsNT5.1;360SE)",
     "Mozilla/4.0(compatible;MSIE7.0;WindowsNT5.1;Trident/4.0;SE2.XMetaSr1.0;SE2.XMetaSr1.0;.NETCLR2.0.50727;SE2.XMetaSr1.0)",

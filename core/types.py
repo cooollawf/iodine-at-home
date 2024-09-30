@@ -11,12 +11,64 @@ class Cluster:
     async def initialize(self):
         data = await cdb.find_cluster(self.id)
         if data[0]:
-            self.name = data[1]["name"]
-            self.secret = data[1]["secret"]
-            self.bandwidth = data[1]["bandwidth"]
+            self.name = str(data[1]["name"])
+            self.secret = str(data[1]["secret"])
+            self.bandwidth = int(data[1]["bandwidth"])
+            self.trust = int(data[1].get("trust", 0))
+            self.isBanned = bool(data[1].get("isBanned", False))
+            self.ban_reason = str(data[1].get("ban_reason", ""))
+            self.host = str(data[1].get("host", ""))
+            self.port = int(data[1].get("port", 0))
+            self.version = str(data[1].get("version", ""))
+            self.runtime = str(data[1].get("runtime", ""))
             return True
         else:
             return False
+
+    async def edit(
+        self,
+        name: str | None = None,
+        secret: str | None = None,
+        bandwidth: int | None = None,
+        trust: int | None = None,
+        isBanned: bool | None = None,
+        ban_reason: str | None = None,
+        host: str | None = None,
+        port: int | None = None,
+        version: str | None = None,
+        runtime: str | None = None,
+    ):
+        result = await cdb.edit_cluster(
+            self.id,
+            name,
+            secret,
+            bandwidth,
+            trust,
+            isBanned,
+            ban_reason,
+            host,
+            port,
+            version,
+            runtime,
+        )
+        if result:
+            await self.initialize()
+        return result
+
+    def json(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "secret": self.secret,
+            "bandwidth": self.bandwidth,
+            "trust": self.trust,
+            "isBanned": self.isBanned,
+            "ban_reason": self.ban_reason,
+            "host": self.host,
+            "port": self.port,
+            "version": self.version,
+            "runtime": self.runtime,
+        }
 
 
 # 本段修改自 TTB-Network/python-openbmclapi 中部分代码

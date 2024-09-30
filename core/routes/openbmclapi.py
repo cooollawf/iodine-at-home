@@ -27,7 +27,7 @@ async def get_filesList():
     avro = Avro()
     avro.writeVarInt(len(filelist))  # 写入文件数量
     for file in filelist:
-        avro.writeString(f"{file['SOURCE']}//{file['HASH']}")  # 路径
+        avro.writeString(f"/{file['SOURCE']}/{file['HASH']}")  # 路径
         avro.writeString(file['HASH'])  # 哈希
         avro.writeVarInt(file['SIZE'])  # 文件大小
         avro.writeVarInt(file['MTIME'])  # 修改时间
@@ -59,4 +59,4 @@ async def post_report(request: Request):
     urls = data.get("urls")
     error = data.get("error")
     logger.warning(f"收到举报, 重定向记录: {urls}，错误信息: {error}")
-    return Response(status_code=200)
+    return Response(content="举报成功", status_code=200)
