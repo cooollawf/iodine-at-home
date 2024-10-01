@@ -7,7 +7,7 @@ from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
 # 本地库
 from core.types import Avro
 from core.logger import logger
-from core.filesdb import filesdb
+from core.filesdb import FilesDB
 
 
 app = APIRouter()
@@ -22,7 +22,8 @@ def get_configuration(response: Response):
 @app.get("/files", summary="文件列表", tags=["nodes"])
 async def get_filesList():
     logger.info("收到请求")
-    filelist = await filesdb.get_all()
+    async with FilesDB() as filesdb:
+        filelist = filesdb.get_all()
     logger.info("获取文件列表成功")
     avro = Avro()
     avro.writeVarInt(len(filelist))  # 写入文件数量

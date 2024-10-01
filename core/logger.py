@@ -3,7 +3,7 @@ from pathlib import Path
 from loguru import logger as Logger
 
 basic_logger_format = (
-    "<green>[{time:HH:mm:ss}]</green><level>[{level}] {message}</level>"
+    "<green>[{time:HH:mm:ss}]</green><level>[{level}]: {message}</level>"
 )
 logfile_logger_format = "<green>[{time:YYYY-MM-DD HH:mm:ss}]</green> <level>[{level}]<yellow>[{name}:{function}:{line}]</yellow>: {message}</level>"
 

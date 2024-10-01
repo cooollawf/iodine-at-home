@@ -6,6 +6,7 @@ import uvicorn
 from pluginbase import PluginBase
 from fastapi import FastAPI, Response
 from datetime import datetime, timezone
+from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse
 
@@ -19,7 +20,7 @@ import core.utils as utils
 from core.logger import logger
 from core.config import config
 from core.types import Cluster
-from core.filesdb import filesdb
+from core.filesdb import FilesDB
 
 # 路由库
 from core.routes.agent import app as agent_router
@@ -27,6 +28,19 @@ from core.routes.openbmclapi import app as openbmclapi_router
 from core.routes.services import app as services_router
 
 # 网页部分
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    async with FilesDB() as db:
+        await db.delete_all()
+    plugin_task = asyncio.create_task(load_plugins())
+    logger.info(
+        f"正在 {config.get('host')}:{config.get('port')} 上监听服务器..."
+    )
+    yield
+    async with FilesDB() as db:
+        await db.close()
+    logger.success("主控退出成功。")
+
 app = FastAPI(
     title="iodine@home",
     summary="开源的文件分发主控，并尝试兼容 OpenBMCLAPI 客户端",
@@ -35,6 +49,7 @@ app = FastAPI(
         "name": "The MIT License",
         "url": "https://raw.githubusercontent.com/ZeroNexis/iodine-at-home/main/LICENSE",
     },
+    lifespan=lifespan
 )
 
 app.include_router(agent_router, prefix="/openbmclapi-agent")
@@ -196,21 +211,6 @@ async def on_cluster_disable(sid, *args):
             logger.debug(f"节点 {cluster.id} 尝试禁用集群失败（原因: 节点没有启用）")
     return [None, True]
 
-
 def init():
-    # asyncio.run(filesdb.delete_all())
-    try:
-        asyncio.run(load_plugins())
-        app.mount("/", socket)
-        logger.info(
-            f"正在 {config.get('host')}:{config.get(path='port')} 上监听服务器..."
-        )
-
-        uvicorn.run(
-            app,
-            host=config.get("host"),
-            port=config.get(path="port"),
-            log_level="warning",
-        )
-    except KeyboardInterrupt:
-        logger.info("主控成功关闭。")
+    app.mount("/", socket)
+    uvicorn.run(app, host=config.get('host'), port=config.get(path='port'), log_level='warning', access_log=False)
