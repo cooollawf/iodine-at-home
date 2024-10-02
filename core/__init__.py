@@ -8,7 +8,7 @@ from fastapi import FastAPI, Response
 from datetime import datetime, timezone
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import JSONResponse
 
 import socketio
 from socketio.asgi import ASGIApp
@@ -23,16 +23,13 @@ from core.types import Cluster
 from core.filesdb import FilesDB
 
 # 路由库
-from core.routes.agent import app as agent_router
-from core.routes.openbmclapi import app as openbmclapi_router
-from core.routes.services import app as services_router
+from core.routes.agent import router as agent_router
+from core.routes.openbmclapi import router as openbmclapi_router
+from core.routes.services import router as services_router
 
 # 网页部分
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with FilesDB() as db:
-        await db.delete_all()
-    plugin_task = asyncio.create_task(load_plugins())
     logger.info(
         f"正在 {config.get('host')}:{config.get('port')} 上监听服务器..."
     )
@@ -66,21 +63,21 @@ app.add_middleware(
 )
 
 # 插件部分
-plugin_base = PluginBase(package="plugin")
-plugin_source = plugin_base.make_plugin_source(searchpath=["./plugins"])
-
-
 async def load_plugins():
+    global app
+    plugin_base = PluginBase(package="plugin")
+    plugin_source = plugin_base.make_plugin_source(searchpath=["./plugins"])
     for plugin_name in plugin_source.list_plugins():
         logger.info(f"插件 {plugin_name} 加载中...")
         plugin = plugin_source.load_plugin(plugin_name)
         logger.info(f"插件「{plugin.__NAME__}」加载成功！")
         if hasattr(plugin, "__API__") and plugin.__API__:
-            if hasattr(plugin, "app"):
-                app.include_router(plugin.app, prefix=f"/{plugin.__NAMESPACE__}")
+            if hasattr(plugin, "router"):
+                app.include_router(plugin.router, prefix=f"/{plugin.__NAMESPACE__}")
+                logger.success(f"已注册插件 API 路由：{plugin.__NAMESPACE__}, {plugin.router.routes}")
             else:
                 logger.warning(
-                    f"插件「{plugin.__NAME__}」未定义 App ，无法加载该插件的路径！"
+                    f"插件「{plugin.__NAME__}」未定义 Router ，无法加载该插件的路径！"
                 )
         await plugin.init()
 
@@ -91,8 +88,20 @@ socket = ASGIApp(sio)
 
 # 核心功能
 online_cluster_list = []
-online_cluster_list_json = []
 
+@app.middleware("http")
+async def _(request,call_next):
+    start_time = datetime.now()
+    response = await call_next(request)
+    process_time = (datetime.now() - start_time).total_seconds()
+    response_size = len(response.body) if hasattr(response, 'body') else 0
+    referer = request.headers.get('Referer')
+    user_agent = request.headers.get('user-agent', '-')
+    logger.info(
+        f"Serve {response.status_code} | {process_time:.2f}s | {response_size}B | "
+        f"{request.client.host} | {request.method} {request.url.path} | \"{user_agent}\" | \"{referer}\""
+    )
+    return response
 
 ## 节点端连接时
 @sio.on("connect")
@@ -132,9 +141,8 @@ async def on_disconnect(sid, *args):
     session = await sio.get_session(sid)
     cluster = Cluster(str(session["cluster_id"]))
     cluster_is_exist = await cluster.initialize()
-    if cluster_is_exist and cluster.json() in online_cluster_list_json and cluster.id in online_cluster_list:
+    if cluster_is_exist and cluster.id in online_cluster_list:
         online_cluster_list.remove(cluster.id)
-        online_cluster_list_json.remove(cluster.json())
         logger.debug(f"{sid} 异常断开连接，已从在线列表中删除")
     else:
         logger.debug(f"客户端 {sid} 断开了连接")
@@ -142,7 +150,7 @@ async def on_disconnect(sid, *args):
 
 ## 节点启动时
 @sio.on("enable")
-async def on_cluster_enable(sid, data, *args):
+async def on_cluster_enable(sid, data: dict, *args):
     session = await sio.get_session(sid)
     cluster = Cluster(str(session["cluster_id"]))
     cluster_is_exist = await cluster.initialize()
@@ -151,7 +159,7 @@ async def on_cluster_enable(sid, data, *args):
     if str(cluster.id) in online_cluster_list == True:
         return [{"message": "错误: 节点已经在线，请检查配置文件"}]
     await cluster.edit(
-        host=data.get("host", session.get("ip")),
+        host=data.get("host", data.get("ip")),
         port=data["port"],
         version=data["version"],
         runtime=data["flavor"]["runtime"],
@@ -163,10 +171,9 @@ async def on_cluster_enable(sid, data, *args):
             sid,
         )
     time.sleep(1)
-    bandwidth = await utils.measure_cluster(10, cluster.json())
+    bandwidth = await utils.measure_cluster(10, cluster)
     if bandwidth[0] and bandwidth[1] >= 10:
         online_cluster_list.append(cluster.id)
-        online_cluster_list_json.append(cluster.json())
         logger.debug(f"节点 {cluster.id} 上线: {bandwidth[1]}Mbps")
         if cluster.trust < 0:
             await sio.emit("message", "节点信任度过低，请保持稳定在线。", sid)
@@ -191,7 +198,7 @@ async def on_cluster_keep_alive(sid, data, *args):
     if cluster_is_exist == False or cluster.id not in online_cluster_list:
         return [None, False]
     logger.debug(
-        f"节点 {cluster.id} 保活（请求数: {data["hits"]} 次 | 请求数据量: {utils.hum_convert(data['bytes'])}）"
+        f"节点 {cluster.id} 保活: 请求数 = {data["hits"]} 次, 请求数据量 = {utils.hum_convert(data['bytes'])}"
     )
     return [None, datetime.now(timezone.utc).isoformat()]
 
@@ -201,16 +208,22 @@ async def on_cluster_disable(sid, *args):
     cluster = Cluster(str(session["cluster_id"]))
     cluster_is_exist = await cluster.initialize()
     if cluster_is_exist == False:
-        logger.debug("某节点尝试禁用集群失败（原因: 节点不存在）")
+        logger.debug("某节点尝试禁用集群失败: 节点不存在")
     else:
         try:
             online_cluster_list.remove(cluster.id)
-            online_cluster_list_json.remove(cluster.json())
             logger.debug(f"节点 {cluster.id} 禁用集群")
         except ValueError:
-            logger.debug(f"节点 {cluster.id} 尝试禁用集群失败（原因: 节点没有启用）")
+            logger.debug(f"节点 {cluster.id} 尝试禁用集群失败: 节点没有启用")
     return [None, True]
 
 def init():
-    app.mount("/", socket)
-    uvicorn.run(app, host=config.get('host'), port=config.get(path='port'), log_level='warning', access_log=False)
+    logger.clear()
+    logger.info("加载中……")
+    logger.info(FilesDB())
+    try:
+        asyncio.run(load_plugins())
+        app.mount("/", socket)
+        uvicorn.run(app, host=config.get('host'), port=config.get(path='port'), log_level='warning', access_log=False)
+    except Exception as e:
+        logger.error(e)

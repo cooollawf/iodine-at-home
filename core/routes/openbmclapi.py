@@ -10,20 +10,20 @@ from core.logger import logger
 from core.filesdb import FilesDB
 
 
-app = APIRouter()
+router = APIRouter()
 
 
-@app.get("/configuration", summary="同步参数", tags=["nodes"])  # 同步参数
+@router.get("/configuration", summary="同步参数", tags=["nodes"])  # 同步参数
 def get_configuration(response: Response):
     # TODO: 根据当前负载情况智能调整并发数
     return {"sync": {"source": "center", "concurrency": 1024}}
 
 
-@app.get("/files", summary="文件列表", tags=["nodes"])
+@router.get("/files", summary="文件列表", tags=["nodes"])
 async def get_filesList():
     logger.info("收到请求")
     async with FilesDB() as filesdb:
-        filelist = filesdb.get_all()
+        filelist = await filesdb.get_all()
     logger.info("获取文件列表成功")
     avro = Avro()
     avro.writeVarInt(len(filelist))  # 写入文件数量
@@ -39,12 +39,12 @@ async def get_filesList():
     return HTMLResponse(content=result, media_type="application/octet-stream")
 
 
-@app.get("/download/{hash}", summary="应急同步", tags=["nodes"])
+@router.get("/download/{hash}", summary="应急同步", tags=["nodes"])
 async def download_file_from_ctrl(hash: str):
     raise HTTPException(404, detail="未找到该文件")
 
 
-@app.post("/report", summary="上报异常", tags=["nodes"])
+@router.post("/report", summary="上报异常", tags=["nodes"])
 async def post_report(request: Request):
     content_type = request.headers.get("content-type", "")
     if "application/json" in content_type:

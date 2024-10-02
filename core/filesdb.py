@@ -1,9 +1,7 @@
+import os
 import atexit
 import asyncio
 import aiosqlite
-from aiosqlite import Cursor
-from pathlib import Path
-import os
 
 
 class FilesDB:
@@ -99,12 +97,12 @@ class FilesDB:
         await self.conn.commit()
         return True
 
-    async def find_one(self, hash: str):
+    async def find_one(self, key: str, value: str):
         async with self.conn.execute(
-            """
-            SELECT * FROM FILELIST WHERE HASH = ?
+            f"""
+            SELECT * FROM FILELIST WHERE {key} = ?
         """,
-            (hash,),
+            (value,),
         ) as cursor:
             row = await cursor.fetchone()
             if row:

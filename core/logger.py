@@ -1,9 +1,10 @@
+import os
 import sys
 from pathlib import Path
 from loguru import logger as Logger
 
 basic_logger_format = (
-    "<green>[{time:HH:mm:ss}]</green><level>[{level}]: {message}</level>"
+    "<green>[{time:HH:mm:ss}]</green><level>[{level}] {message}</level>"
 )
 logfile_logger_format = "<green>[{time:YYYY-MM-DD HH:mm:ss}]</green> <level>[{level}]<yellow>[{name}:{function}:{line}]</yellow>: {message}</level>"
 
@@ -28,5 +29,11 @@ class LoggingLogger:
         self.warning = self.log.warning
         self.error = self.log.error
         self.success = self.log.success
+    
+    def clear(self):
+        if os.name == "nt":
+            os.system("cls")
+        else:
+            os.system("clear")
 
 logger = LoggingLogger()

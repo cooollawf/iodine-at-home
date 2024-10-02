@@ -10,6 +10,7 @@ from random import choice
 import core.const as const
 from core.config import config
 from core.logger import logger
+from core.types import Cluster
 
 
 # JWT 加密
@@ -75,10 +76,10 @@ def get_url(host: str, port: str, path: str, sign: str):
 
 
 # 对节点进行测速
-async def measure_cluster(size: int, cluster):
+async def measure_cluster(size: int, cluster: Cluster):
     path = f"/measure/{str(size)}"
-    sign = get_sign(path, cluster["secret"])
-    url = get_url(cluster["host"], cluster["port"], path, sign)
+    sign = get_sign(path, cluster.secret)
+    url = get_url(cluster.host, cluster.port, path, sign)
     try:
         start_time = time.time()
         async with aiohttp.ClientSession() as client:

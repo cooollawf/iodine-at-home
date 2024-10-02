@@ -5,7 +5,7 @@ import hashlib
 from fastapi import APIRouter, Request, HTTPException, Response
 from fastapi.responses import JSONResponse, PlainTextResponse
 
-app = APIRouter()
+router = APIRouter()
 
 # 本地库
 import core.utils as utils
@@ -13,7 +13,7 @@ import core.const as const
 from core.types import Cluster
 
 
-@app.get("/challenge", summary="颁发 challenge 码", tags=["nodes"])  # 颁发 challenge 验证码
+@router.get("/challenge", summary="颁发 challenge 码", tags=["nodes"])  # 颁发 challenge 验证码
 async def get_challenge(response: Response, clusterId: str | None = ""):
     cluster = Cluster(clusterId)
     if await cluster.initialize():
@@ -31,7 +31,7 @@ async def get_challenge(response: Response, clusterId: str | None = ""):
         raise HTTPException(status_code=404, detail="节点未找到")
 
 
-@app.post("/token", summary="颁发令牌", tags=["nodes"])  # 颁发令牌
+@router.post("/token", summary="颁发令牌", tags=["nodes"])  # 颁发令牌
 async def post_token(request: Request):
     content_type = request.headers.get("content-type", "")
     if "application/json" in content_type:
