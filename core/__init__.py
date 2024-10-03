@@ -3,6 +3,7 @@ import re
 import time
 import asyncio
 import uvicorn
+import importlib
 from pluginbase import PluginBase
 from fastapi import FastAPI, Response
 from datetime import datetime, timezone
@@ -19,7 +20,7 @@ import core.const as const
 import core.utils as utils
 from core.logger import logger
 from core.config import config
-from core.types import Cluster
+from core.types import Cluster, oclm
 from core.filesdb import FilesDB
 
 # 路由库
@@ -69,7 +70,7 @@ async def load_plugins():
     plugin_source = plugin_base.make_plugin_source(searchpath=["./plugins"])
     for plugin_name in plugin_source.list_plugins():
         logger.info(f"插件 {plugin_name} 加载中...")
-        plugin = plugin_source.load_plugin(plugin_name)
+        plugin = importlib.import_module("plugins." + plugin_name)
         logger.info(f"插件「{plugin.__NAME__}」加载成功！")
         if hasattr(plugin, "__API__") and plugin.__API__:
             if hasattr(plugin, "router"):
@@ -87,8 +88,6 @@ sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*")
 socket = ASGIApp(sio)
 
 # 核心功能
-online_cluster_list = []
-
 @app.middleware("http")
 async def _(request,call_next):
     start_time = datetime.now()
@@ -99,7 +98,7 @@ async def _(request,call_next):
     user_agent = request.headers.get('user-agent', '-')
     logger.info(
         f"Serve {response.status_code} | {process_time:.2f}s | {response_size}B | "
-        f"{request.client.host} | {request.method} {request.url.path} | \"{user_agent}\" | \"{referer}\""
+        f"{request.client.host} | {request.method} | {request.url.path} | \"{user_agent}\" | \"{referer}\""
     )
     return response
 
@@ -141,8 +140,8 @@ async def on_disconnect(sid, *args):
     session = await sio.get_session(sid)
     cluster = Cluster(str(session["cluster_id"]))
     cluster_is_exist = await cluster.initialize()
-    if cluster_is_exist and cluster.id in online_cluster_list:
-        online_cluster_list.remove(cluster.id)
+    if cluster_is_exist and oclm.include(cluster.id):
+        oclm.remove(cluster.id)
         logger.debug(f"{sid} 异常断开连接，已从在线列表中删除")
     else:
         logger.debug(f"客户端 {sid} 断开了连接")
@@ -156,7 +155,7 @@ async def on_cluster_enable(sid, data: dict, *args):
     cluster_is_exist = await cluster.initialize()
     if cluster_is_exist == False:
         return [{"message": "错误: 节点似乎并不存在，请检查配置文件"}]
-    if str(cluster.id) in online_cluster_list == True:
+    if oclm.include(cluster.id):
         return [{"message": "错误: 节点已经在线，请检查配置文件"}]
     await cluster.edit(
         host=data.get("host", data.get("ip")),
@@ -173,8 +172,8 @@ async def on_cluster_enable(sid, data: dict, *args):
     time.sleep(1)
     bandwidth = await utils.measure_cluster(10, cluster)
     if bandwidth[0] and bandwidth[1] >= 10:
-        online_cluster_list.append(cluster.id)
-        logger.debug(f"节点 {cluster.id} 上线: {bandwidth[1]}Mbps")
+        oclm.append(cluster.id)
+        logger.debug(f"节点 {cluster.id} 上线: 测量带宽 = {bandwidth[1]}Mbps")
         if cluster.trust < 0:
             await sio.emit("message", "节点信任度过低，请保持稳定在线。", sid)
         return [None, True]
@@ -195,10 +194,10 @@ async def on_cluster_keep_alive(sid, data, *args):
     session = await sio.get_session(sid)
     cluster = Cluster(str(session["cluster_id"]))
     cluster_is_exist = await cluster.initialize()
-    if cluster_is_exist == False or cluster.id not in online_cluster_list:
+    if cluster_is_exist == False or oclm.include(cluster.id) == False:
         return [None, False]
     logger.debug(
-        f"节点 {cluster.id} 保活: 请求数 = {data["hits"]} 次, 请求数据量 = {utils.hum_convert(data['bytes'])}"
+        f"节点 {cluster.id} 保活: 请求数 = {data["hits"]}次, 请求数据量 = {utils.hum_convert(data['bytes'])}"
     )
     return [None, datetime.now(timezone.utc).isoformat()]
 
@@ -211,7 +210,7 @@ async def on_cluster_disable(sid, *args):
         logger.debug("某节点尝试禁用集群失败: 节点不存在")
     else:
         try:
-            online_cluster_list.remove(cluster.id)
+            oclm.remove(cluster.id)
             logger.debug(f"节点 {cluster.id} 禁用集群")
         except ValueError:
             logger.debug(f"节点 {cluster.id} 尝试禁用集群失败: 节点没有启用")
@@ -220,7 +219,6 @@ async def on_cluster_disable(sid, *args):
 def init():
     logger.clear()
     logger.info("加载中……")
-    logger.info(FilesDB())
     try:
         asyncio.run(load_plugins())
         app.mount("/", socket)

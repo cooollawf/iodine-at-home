@@ -71,6 +71,28 @@ class Cluster:
         }
 
 
+class OCLManager:
+    def __init__(self):
+        self.list = []
+
+    def __len__(self):
+        return len(self.list)
+
+    def append(self, cluster_id: str):
+        if cluster_id not in self.list:
+            self.list.append(cluster_id)
+
+    def remove(self, cluster_id: str):
+        if cluster_id in self.list:
+            self.list.remove(cluster_id)
+
+    def include(self, cluster_id: str):
+        return cluster_id in self.list
+
+
+oclm = OCLManager()
+
+
 # 本段修改自 TTB-Network/python-openbmclapi 中部分代码
 # 仓库链接: https://github.com/TTB-Network/python-openbmclapi
 # 源代码使用 MIT License 协议开源 | Copyright (c) 2024 TTB-Network

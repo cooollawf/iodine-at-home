@@ -7,7 +7,7 @@ class Config:
         self.config = self.load_config()
 
     def load_config(self):
-        with open(self.config_file, "r") as file:
+        with open(self.config_file, "r", encoding="utf-8") as file:
             config = yaml.safe_load(file)
         return config
 

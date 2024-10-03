@@ -83,7 +83,7 @@ class FilesDB:
             """
             DELETE FROM FILELIST WHERE HASH = ?
         """,
-            (hash),
+            (hash,),
         )
         await self.conn.commit()
         return True
@@ -118,3 +118,8 @@ class FilesDB:
             columns = [desc[0] for desc in cursor.description]
             result = [dict(zip(columns, row)) for row in rows]
         return result
+
+print("*" * 32)
+print("草泥马的")
+print(FilesDB)
+print("*" * 32)
