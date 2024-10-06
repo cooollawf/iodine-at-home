@@ -31,6 +31,7 @@ from core.dns.cloudflare import cf_client
 from core.routes.agent import router as agent_router
 from core.routes.openbmclapi import router as openbmclapi_router
 from core.routes.services import router as services_router
+from core.routes.api.v0 import router as api_v0_router
 
 # 网页部分
 @asynccontextmanager
@@ -57,6 +58,7 @@ app = FastAPI(
 app.include_router(agent_router, prefix="/openbmclapi-agent")
 app.include_router(openbmclapi_router, prefix="/openbmclapi")
 app.include_router(services_router)
+app.include_router(api_v0_router, prefix="/api/v0")
 
 ## 跨域设置
 app.add_middleware(
