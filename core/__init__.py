@@ -258,7 +258,7 @@ async def on_cluster_keep_alive(sid, data, *args):
     if cluster_is_exist == False or oclm.include(cluster.id) == False:
         return [None, False]
     logger.debug(
-        f"节点 {cluster.id} 保活成功: 请求数 = {data["hits"]}次, 请求数据量 = {utils.hum_convert(data['bytes'])}"
+        f"节点 {cluster.id} 保活成功: 次数 = {data["hits"]}, 数据量 = {utils.hum_convert(data['bytes'])}"
     )
     return [None, datetime.now(timezone.utc).isoformat()]
 

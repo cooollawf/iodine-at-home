@@ -87,7 +87,7 @@ async def measure_cluster(size: int, cluster: Cluster):
         end_time = time.time()
         elapsed_time = end_time - start_time
         # 计算测速时间
-        bandwidth = size / elapsed_time * 8  / 10  # 计算带宽
+        bandwidth = size / elapsed_time * 8  # 计算带宽
         return [True, bandwidth]
     except Exception as e:
         return [False, e]
