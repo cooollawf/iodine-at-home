@@ -23,9 +23,9 @@ class Cluster:
             self.port = int(data[1].get("port", 0))
             self.version = str(data[1].get("version", ""))
             self.runtime = str(data[1].get("runtime", ""))
-            self.ssl_cert = str(data[1].get("ssl_cert", ""))
-            self.ssl_key = str(data[1].get("ssl_key", ""))
-            self.ssl_expiry = str(data[1].get("ssl_expiry", ""))
+            self.ssl_cert = str(data[1].get("ssl", "").get("cert", ""))
+            self.ssl_key = str(data[1].get("ssl", "").get("key", ""))
+            self.ssl_expiry = str(data[1].get("ssl", "").get("expiry", ""))
             self.weight = self.trust + self.bandwidth + self.measureBandwidth
             return True
         else:
