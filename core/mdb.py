@@ -91,9 +91,9 @@ class Database:
         port: int = None,
         version: str = None,
         runtime: str = None,
-        ssl_cert: str = None,
-        ssl_key: str = None,
-        ssl_expiry: str = None
+        cert_fullchain: str = None,
+        cert_privkey: str = None,
+        cert_expiry: str = None
     ):
         data = {
             "name": name,
@@ -107,9 +107,9 @@ class Database:
             "port": port,
             "version": version,
             "runtime": runtime,
-            "ssl_cert": ssl_cert,
-            "ssl_key": ssl_key,
-            "ssl_expiry": ssl_expiry
+            "cert_fullchain": cert_fullchain,
+            "cert_privkey": cert_privkey,
+            "cert_expiry": cert_expiry
         }
         valid_update_data = {k: v for k, v in data.items() if v is not None}
         result = await self.db.clusters.update_one(

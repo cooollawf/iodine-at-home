@@ -160,14 +160,14 @@ async def on_cluster_request_cert(sid, *args):
     if cluster_is_exist == False:
         return [{"message": "错误: 节点似乎并不存在，请检查配置文件"}]
     logger.debug(f"节点 {cluster.id} 请求证书")
-    if cluster.ssl_cert != "" and cluster.ssl_key != "" and cluster.ssl_expiry != "" and cluster.ssl_expiry > datetime.now(pytz.utc).strftime('%Y-%m-%dT%H:%M:%S+00:00'):
+    if cluster.cert_fullchain != "" and cluster.cert_privkey != "" and cluster.cert_expiry != "" and cluster.cert_expiry > datetime.now(pytz.utc).strftime('%Y-%m-%dT%H:%M:%S+00:00'):
         return [
             None, {
                 "_id": cluster.id,
                 "clusterId": cluster.id,
-                "cert": cluster.ssl_cert,
-                "key": cluster.ssl_key,
-                "expires": cluster.ssl_expiry,
+                "cert": cluster.cert_fullchain,
+                "key": cluster.cert_privkey,
+                "expires": cluster.cert_expiry,
                 "__v": 0
             }
         ]
@@ -178,14 +178,14 @@ async def on_cluster_request_cert(sid, *args):
         current_time = datetime.now(pytz.utc)
         future_time = current_time + relativedelta(months=3)
         formatted_time = future_time.astimezone(pytz.utc).strftime('%Y-%m-%dT%H:%M:%S+00:00')
-        await cluster.edit(ssl_cert=cert, ssl_key=key, ssl_expiry=formatted_time)
+        await cluster.edit(cert_fullchain=cert, cert_privkey=key, cert_expiry=formatted_time)
         return [
             None, {
                 "_id": cluster.id,
                 "clusterId": cluster.id,
-                "cert": cluster.ssl_cert,
-                "key": cluster.ssl_key,
-                "expires": cluster.ssl_expiry,
+                "cert": cluster.cert_fullchain,
+                "key": cluster.cert_privkey,
+                "expires": cluster.cert_expiry,
                 "__v": 0
             }
         ]

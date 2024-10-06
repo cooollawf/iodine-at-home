@@ -23,9 +23,9 @@ class Cluster:
             self.port = int(data[1].get("port", 0))
             self.version = str(data[1].get("version", ""))
             self.runtime = str(data[1].get("runtime", ""))
-            self.ssl_cert = str(data[1].get("ssl_cert", ""))
-            self.ssl_key = str(data[1].get("ssl_key", ""))
-            self.ssl_expiry = str(data[1].get("ssl_expiry", ""))
+            self.cert_fullchain = str(data[1].get("cert_fullchain", ""))
+            self.cert_privkey = str(data[1].get("cert_privkey", ""))
+            self.cert_expiry = str(data[1].get("cert_expiry", ""))
             self.weight = self.trust + self.bandwidth + self.measureBandwidth
             return True
         else:
@@ -44,9 +44,9 @@ class Cluster:
         port: int = None,
         version: str = None,
         runtime: str = None,
-        ssl_cert: str = None,
-        ssl_key: str = None,
-        ssl_expiry: str = None
+        cert_fullchain: str = None,
+        cert_privkey: str = None,
+        cert_expiry: str = None
     ):
         result = await cdb.edit_cluster(
             self.id,
@@ -61,9 +61,9 @@ class Cluster:
             port,
             version,
             runtime,
-            ssl_cert,
-            ssl_key,
-            ssl_expiry
+            cert_fullchain,
+            cert_privkey,
+            cert_expiry
         )
         if result:
             await self.initialize()
