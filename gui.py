@@ -5,7 +5,7 @@ if '-nogui' in sys.argv:
     import core
     from core.logger import logger
     import asyncio
-    print ("他妈的你看到这个消息代表nogui模式开始启动")
+    print("你看到这个消息代表nogui模式开始启动")
 
     py_version = sys.version_info
 
@@ -46,7 +46,7 @@ else:
             load_layout = QHBoxLayout()
 
             # 创建显示当前负载的标签
-            self.load_label = QLabel("当前负载：您还没有启动，负载不显示。", self)
+            self.load_label = QLabel("当前负载：没有收到负载信息。", self)
             load_layout.addWidget(self.load_label)
 
             layout.addLayout(load_layout)  # 将负载标签的布局添加到主布局

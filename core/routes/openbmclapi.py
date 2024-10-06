@@ -21,10 +21,8 @@ def get_configuration(response: Response):
 
 @router.get("/files", summary="文件列表", tags=["nodes"])
 async def get_filesList():
-    logger.info("收到请求")
     async with FilesDB() as filesdb:
         filelist = await filesdb.get_all()
-    logger.info("获取文件列表成功")
     avro = Avro()
     avro.writeVarInt(len(filelist))  # 写入文件数量
     for file in filelist:
@@ -35,7 +33,6 @@ async def get_filesList():
     avro.write(b"\x00")
     result = pyzstd.compress(avro.io.getvalue())
     avro.io.close()
-    logger.info("转码、压缩成功")
     return HTMLResponse(content=result, media_type="application/octet-stream")
 
 

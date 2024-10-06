@@ -1,8 +1,8 @@
 # 第三方库
 import jwt
 import time
+import httpx
 import base64
-import aiohttp
 import hashlib
 from random import choice
 
@@ -71,7 +71,7 @@ def get_sign(path, secret):
 
 # 获取节点mesure的url
 def get_url(host: str, port: str, path: str, sign: str):
-    url = f"http://{host}:{port}{path}{sign}"
+    url = f"https://{host}:{port}{path}{sign}"
     return url
 
 
@@ -82,12 +82,12 @@ async def measure_cluster(size: int, cluster: Cluster):
     url = get_url(cluster.host, cluster.port, path, sign)
     try:
         start_time = time.time()
-        async with aiohttp.ClientSession() as client:
+        async with httpx.AsyncClient() as client:
             response = await client.get(url, headers={"User-Agent": const.user_agent})
         end_time = time.time()
         elapsed_time = end_time - start_time
         # 计算测速时间
-        bandwidth = size / elapsed_time * 8  # 计算带宽
+        bandwidth = size / elapsed_time * 8  / 10  # 计算带宽
         return [True, bandwidth]
     except Exception as e:
         return [False, e]

@@ -1,5 +1,5 @@
 import io
-import asyncio
+import heapq
 from typing import Optional
 from core.mdb import cdb
 
@@ -11,9 +11,11 @@ class Cluster:
     async def initialize(self):
         data = await cdb.find_cluster(self.id)
         if data[0]:
+            # 正常数据
             self.name = str(data[1]["name"])
             self.secret = str(data[1]["secret"])
             self.bandwidth = int(data[1]["bandwidth"])
+            self.measureBandwidth = int(data[1].get("measureBandwidth", 0))
             self.trust = int(data[1].get("trust", 0))
             self.isBanned = bool(data[1].get("isBanned", False))
             self.ban_reason = str(data[1].get("ban_reason", ""))
@@ -21,28 +23,37 @@ class Cluster:
             self.port = int(data[1].get("port", 0))
             self.version = str(data[1].get("version", ""))
             self.runtime = str(data[1].get("runtime", ""))
+            self.ssl_cert = str(data[1].get("ssl_cert", ""))
+            self.ssl_key = str(data[1].get("ssl_key", ""))
+            self.ssl_expiry = str(data[1].get("ssl_expiry", ""))
+            self.weight = self.trust + self.bandwidth + self.measureBandwidth
             return True
         else:
             return False
 
     async def edit(
         self,
-        name: str | None = None,
-        secret: str | None = None,
-        bandwidth: int | None = None,
-        trust: int | None = None,
-        isBanned: bool | None = None,
-        ban_reason: str | None = None,
-        host: str | None = None,
-        port: int | None = None,
-        version: str | None = None,
-        runtime: str | None = None,
+        name: str = None,
+        secret: str = None,
+        bandwidth: int = None,
+        measureBandwidth: int = None,
+        trust: int = None,
+        isBanned: bool = None,
+        ban_reason: str = None,
+        host: str = None,
+        port: int = None,
+        version: str = None,
+        runtime: str = None,
+        ssl_cert: str = None,
+        ssl_key: str = None,
+        ssl_expiry: str = None
     ):
         result = await cdb.edit_cluster(
             self.id,
             name,
             secret,
             bandwidth,
+            measureBandwidth,
             trust,
             isBanned,
             ban_reason,
@@ -50,6 +61,9 @@ class Cluster:
             port,
             version,
             runtime,
+            ssl_cert,
+            ssl_key,
+            ssl_expiry
         )
         if result:
             await self.initialize()
@@ -61,6 +75,7 @@ class Cluster:
             "name": self.name,
             "secret": self.secret,
             "bandwidth": self.bandwidth,
+            "measureBandwidth": self.measureBandwidth,
             "trust": self.trust,
             "isBanned": self.isBanned,
             "ban_reason": self.ban_reason,
@@ -101,7 +116,7 @@ class Avro:
         self.io = io.BytesIO(initial_bytes)
         self.encoding = encoding
 
-    def read(self, __size: int | None = None):
+    def read(self, __size: int = None):
         return self.io.read(__size)
 
     def readIntegetr(self):
@@ -205,3 +220,43 @@ class Avro:
             data >>= 7
         r += data.to_bytes(1, "big")
         return r
+
+
+class WRRScheduler:
+    def __init__(self):
+        self.servers = {}
+        self.queue = []
+
+    def add_server(self, server, weight):
+        # 添加服务器及其权重到字典
+        self.servers[server] = weight
+        # 向队列中添加多个条目，数量由权重决定
+        for _ in range(weight):
+            heapq.heappush(self.queue, (-weight, server))
+
+    def remove_server(self, server):
+        # 移除所有与指定服务器相关的条目
+        self.queue = [item for item in self.queue if item[1] != server]
+        # 从字典中删除服务器
+        del self.servers[server]
+
+    def update_weight(self, server, new_weight):
+        # 移除所有与指定服务器相关的条目
+        self.queue = [item for item in self.queue if item[1] != server]
+        # 更新字典中的权重
+        self.servers[server] = new_weight
+        # 添加新的条目
+        for _ in range(new_weight):
+            heapq.heappush(self.queue, (-new_weight, server))
+
+    def next_server(self):
+        if not self.queue:
+            return None
+        # 弹出队列中的第一个元素
+        weight, server = heapq.heappop(self.queue)
+        # 将权重减一后重新插入队列
+        heapq.heappush(self.queue, (weight + 1, server))
+        return server
+
+
+wrrs = WRRScheduler()

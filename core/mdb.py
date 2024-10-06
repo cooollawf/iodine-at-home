@@ -57,6 +57,7 @@ class Database:
                 "name": name,
                 "secret": secret,
                 "bandwidth": bandwidth,
+                "isBanned": False
             }
         )
 
@@ -82,6 +83,7 @@ class Database:
         name: str = None,
         secret: str = None,
         bandwidth: int = None,
+        measureBandwidth: int = None,
         trust: int = None,
         isBanned: bool = None,
         ban_reason: str = None,
@@ -89,11 +91,15 @@ class Database:
         port: int = None,
         version: str = None,
         runtime: str = None,
+        ssl_cert: str = None,
+        ssl_key: str = None,
+        ssl_expiry: str = None
     ):
         data = {
             "name": name,
             "secret": secret,
             "bandwidth": bandwidth,
+            "measureBandwidth": measureBandwidth,
             "trust": trust,
             "isBanned": isBanned,
             "ban_reason": ban_reason,
@@ -101,12 +107,14 @@ class Database:
             "port": port,
             "version": version,
             "runtime": runtime,
+            "ssl_cert": ssl_cert,
+            "ssl_key": ssl_key,
+            "ssl_expiry": ssl_expiry
         }
         valid_update_data = {k: v for k, v in data.items() if v is not None}
         result = await self.db.clusters.update_one(
             {"_id": to_objectId(id)},
             {"$set": valid_update_data},
-            upsert=True,
         )
         if result.modified_count == 1:
             return True

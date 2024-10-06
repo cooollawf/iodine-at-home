@@ -1,13 +1,16 @@
 # 第三方库
 import re
 import time
+import pytz
 import asyncio
 import uvicorn
 import importlib
 from pluginbase import PluginBase
 from fastapi import FastAPI, Response
 from datetime import datetime, timezone
+from datetime import datetime, timedelta
 from contextlib import asynccontextmanager
+from dateutil.relativedelta import relativedelta
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -22,6 +25,7 @@ from core.logger import logger
 from core.config import config
 from core.types import Cluster, oclm
 from core.filesdb import FilesDB
+from core.dns.cloudflare import cf_client
 
 # 路由库
 from core.routes.agent import router as agent_router
@@ -131,7 +135,7 @@ async def on_connect(sid, *args):
         )
     else:
         sio.disconnect(sid)
-        logger.debug(f"客户端 {sid} 连接失败: 认证出错")
+        logger.debug(f"节点 {sid} 连接失败: 认证出错")
 
 
 ## 当节点端退出连接时
@@ -144,12 +148,52 @@ async def on_disconnect(sid, *args):
         oclm.remove(cluster.id)
         logger.debug(f"{sid} 异常断开连接，已从在线列表中删除")
     else:
-        logger.debug(f"客户端 {sid} 断开了连接")
+        logger.debug(f"节点 {sid} 断开了连接")
 
+
+## 节点请求证书时
+@sio.on("request-cert")
+async def on_cluster_request_cert(sid, *args):
+    session = await sio.get_session(sid)
+    cluster = Cluster(str(session["cluster_id"]))
+    cluster_is_exist = await cluster.initialize()
+    if cluster_is_exist == False:
+        return [{"message": "错误: 节点似乎并不存在，请检查配置文件"}]
+    logger.debug(f"节点 {cluster.id} 请求证书")
+    if cluster.ssl_cert != "" and cluster.ssl_key != "" and cluster.ssl_expiry != "" and cluster.ssl_expiry > datetime.now(pytz.utc).strftime('%Y-%m-%dT%H:%M:%S+00:00'):
+        return [
+            None, {
+                "_id": cluster.id,
+                "clusterId": cluster.id,
+                "cert": cluster.ssl_cert,
+                "key": cluster.ssl_key,
+                "expires": cluster.ssl_expiry,
+                "__v": 0
+            }
+        ]
+    else:
+        cert, key = await cf_client.get_certificate(f"{cluster.id}.{config.get('cluster-certificate.domain')}")
+        if cert == None or key == None:
+            return [{"message": "错误: 证书获取失败，请重新尝试。"}]
+        current_time = datetime.now(pytz.utc)
+        future_time = current_time + relativedelta(months=3)
+        formatted_time = future_time.astimezone(pytz.utc).strftime('%Y-%m-%dT%H:%M:%S+00:00')
+        await cluster.edit(ssl_cert=cert, ssl_key=key, ssl_expiry=formatted_time)
+        return [
+            None, {
+                "_id": cluster.id,
+                "clusterId": cluster.id,
+                "cert": cluster.ssl_cert,
+                "key": cluster.ssl_key,
+                "expires": cluster.ssl_expiry,
+                "__v": 0
+            }
+        ]
 
 ## 节点启动时
 @sio.on("enable")
 async def on_cluster_enable(sid, data: dict, *args):
+    # {'host': '127.0.0.1', 'port': 11451, 'version': '1.11.0', 'byoc': True, 'noFastEnable': True, 'flavor': {'runtime': 'python/3.12.2 python-openbmclapi/2.1.1', 'storage': 'file'}}
     session = await sio.get_session(sid)
     cluster = Cluster(str(session["cluster_id"]))
     cluster_is_exist = await cluster.initialize()
@@ -157,8 +201,24 @@ async def on_cluster_enable(sid, data: dict, *args):
         return [{"message": "错误: 节点似乎并不存在，请检查配置文件"}]
     if oclm.include(cluster.id):
         return [{"message": "错误: 节点已经在线，请检查配置文件"}]
+    host = data.get("host", data.get("ip"))
+    byoc = data.get("byoc", False)
+    if byoc == False:
+        all_records = await cf_client.get_all_records()
+        for record in all_records:
+            if cluster.id in record["name"]:
+                cf_id = record["id"]
+                break
+            else:
+                cf_id = None
+        if cf_id == None:
+            await cf_client.create_record(cluster.id, "A", data.get("host", data.get("ip")))
+        else:
+            await cf_client.update_record(id, cluster.id, "A", data.get("host", data.get("ip")))
+        host = f"{cluster.id}.{config.get('cluster-certificate.domain')}"
+
     await cluster.edit(
-        host=data.get("host", data.get("ip")),
+        host=host,
         port=data["port"],
         version=data["version"],
         runtime=data["flavor"]["runtime"],
@@ -172,20 +232,21 @@ async def on_cluster_enable(sid, data: dict, *args):
     time.sleep(1)
     bandwidth = await utils.measure_cluster(10, cluster)
     if bandwidth[0] and bandwidth[1] >= 10:
-        oclm.append(cluster.id)
-        logger.debug(f"节点 {cluster.id} 上线: 测量带宽 = {bandwidth[1]}Mbps")
+        await cluster.edit(measureBandwidth=int(bandwidth[1]))
         if cluster.trust < 0:
             await sio.emit("message", "节点信任度过低，请保持稳定在线。", sid)
+        oclm.append(cluster.id)
+        logger.debug(f"节点 {cluster.id} 上线: 测量带宽 = {bandwidth[1]}Mbps")
         return [None, True]
     elif bandwidth[0] and bandwidth[1] < 10:
         logger.debug(f"{cluster.id} 测速不合格: {bandwidth[1]}Mbps")
         return [
             {
-                "message": f"错误: 测量带宽小于 10Mbps，（测量得 {bandwidth[1]}），请重试尝试上线"
+                "message": f"错误: 测量带宽小于 10Mbps，（测量的带宽数值为 {bandwidth[1]}），请重试尝试上线"
             }
         ]
     else:
-        logger.debug(f"{cluster.id} 测速未通过: {bandwidth[1]}")
+        logger.debug(f"{cluster.id} 测速失败: {bandwidth[1]}")
         return [{"message": f"错误: {bandwidth[1]}"}]
     
 ## 节点保活时
@@ -197,7 +258,7 @@ async def on_cluster_keep_alive(sid, data, *args):
     if cluster_is_exist == False or oclm.include(cluster.id) == False:
         return [None, False]
     logger.debug(
-        f"节点 {cluster.id} 保活: 请求数 = {data["hits"]}次, 请求数据量 = {utils.hum_convert(data['bytes'])}"
+        f"节点 {cluster.id} 保活成功: 请求数 = {data["hits"]}次, 请求数据量 = {utils.hum_convert(data['bytes'])}"
     )
     return [None, datetime.now(timezone.utc).isoformat()]
 

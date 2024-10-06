@@ -49,3 +49,8 @@ async def download_path_file(hash: str):
             return RedirectResponse(url, 302)
     else:
         raise HTTPException(404, detail="未找到该文件")
+
+# @router.get("/kick/{id}")
+# async def kick_cluster(id: str):
+#     oclm.remove(id) 
+#     return {"message": "OK"}
